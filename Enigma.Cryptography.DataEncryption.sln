@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Enigma.Cryptography.DataEncryption", "Enigma.Cryptography.DataEncryption\Enigma.Cryptography.DataEncryption.csproj", "{A14F6DB6-A931-49DE-B2AE-74C7A8BCBDC0}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ConsoleApp1", "ConsoleApp1\ConsoleApp1.csproj", "{AE64B492-8A2A-47A3-A068-17515A668527}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +14,9 @@ Global
 		{A14F6DB6-A931-49DE-B2AE-74C7A8BCBDC0}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A14F6DB6-A931-49DE-B2AE-74C7A8BCBDC0}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A14F6DB6-A931-49DE-B2AE-74C7A8BCBDC0}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AE64B492-8A2A-47A3-A068-17515A668527}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AE64B492-8A2A-47A3-A068-17515A668527}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AE64B492-8A2A-47A3-A068-17515A668527}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AE64B492-8A2A-47A3-A068-17515A668527}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

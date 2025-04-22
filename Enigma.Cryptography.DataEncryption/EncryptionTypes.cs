@@ -1,6 +1,6 @@
 ﻿namespace Enigma.Cryptography.DataEncryption;
 
-public enum DataEncryptionType : byte
+public enum EncryptionTypes : byte
 {
     PBKDF2 = 0x01,
     ARGON2 = 0x02,

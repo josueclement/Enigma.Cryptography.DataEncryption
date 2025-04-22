@@ -1,6 +1,6 @@
 ﻿namespace Enigma.Cryptography.DataEncryption;
 
-public enum DataEncryptionCipher : byte
+public enum Ciphers : byte
 {
     AES_256_GCM = 0x01,
     TWOFISH_256_GCM = 0x02,
