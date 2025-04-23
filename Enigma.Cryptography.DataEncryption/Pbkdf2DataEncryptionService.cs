@@ -27,7 +27,7 @@ public class Pbkdf2DataEncryptionService
     private async Task WriteHeaderAsync(Stream output, byte cipherValue, byte[] salt, byte[] nonce, int iterations)
     {
         await output.WriteBytesAsync([0xec, 0xde]);                 // Identifier
-        await output.WriteByteAsync((byte)EncryptionTypes.PBKDF2);  // Type
+        await output.WriteByteAsync((byte)EncryptionType.Pbkdf2);  // Type
         await output.WriteByteAsync(0x01);                          // Version
         await output.WriteByteAsync(cipherValue);                   // Cipher
         await output.WriteBytesAsync(salt);                         // Salt
@@ -51,7 +51,7 @@ public class Pbkdf2DataEncryptionService
         Stream output,
         string password,
         int iterations,
-        Ciphers cipher,
+        Cipher cipher,
         IProgress<long>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -89,14 +89,14 @@ public class Pbkdf2DataEncryptionService
     /// <param name="input">The input stream containing the encrypted data.</param>
     /// <returns>A tuple containing the cipher algorithm, salt, nonce, and iterations extracted from the header.</returns>
     /// <exception cref="InvalidDataException">Thrown when the header is invalid or unsupported.</exception>
-    private async Task<(Ciphers cipher, byte[] salt, byte[] nonce, int iterations)> ReadHeaderAsync(Stream input)
+    private async Task<(Cipher cipher, byte[] salt, byte[] nonce, int iterations)> ReadHeaderAsync(Stream input)
     {
         var header = await input.ReadBytesAsync(2);
         if (header[0] != 0xec || header[1] != 0xde)
             throw new InvalidDataException("Invalid header");
         
         var typeValue = await input.ReadByteAsync();
-        if ((EncryptionTypes)typeValue != EncryptionTypes.PBKDF2)
+        if ((EncryptionType)typeValue != EncryptionType.Pbkdf2)
             throw new InvalidDataException("Invalid encryption type");
         
         var version = await input.ReadByteAsync();
@@ -104,7 +104,7 @@ public class Pbkdf2DataEncryptionService
             throw new InvalidDataException("Invalid version");
         
         var cipherValue = await input.ReadByteAsync();
-        var cipher = (Ciphers)cipherValue; 
+        var cipher = (Cipher)cipherValue; 
         
         var salt = await input.ReadBytesAsync(16);
         var nonce = await input.ReadBytesAsync(12);

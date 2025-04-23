@@ -38,7 +38,7 @@ public class Argon2DataEncryptionService
         int memoryPowOfTwo)
     {
         await output.WriteBytesAsync([0xec, 0xde]);                 // Identifier
-        await output.WriteByteAsync((byte)EncryptionTypes.ARGON2);  // Type
+        await output.WriteByteAsync((byte)EncryptionType.Argon2);  // Type
         await output.WriteByteAsync(0x01);                          // Version
         await output.WriteByteAsync(cipherValue);                   // Cipher
         await output.WriteBytesAsync(salt);                         // Salt
@@ -66,7 +66,7 @@ public class Argon2DataEncryptionService
         Stream input,
         Stream output,
         byte[] password,
-        Ciphers cipher,
+        Cipher cipher,
         int iterations = 10,
         int parallelism = 4,
         int memoryPowOfTwo = 16,
@@ -108,7 +108,7 @@ public class Argon2DataEncryptionService
     /// <param name="input">The stream to read the header from</param>
     /// <returns>A tuple containing the cipher algorithm and encryption parameters</returns>
     /// <exception cref="InvalidDataException">Thrown when the header is invalid</exception>
-    private async Task<(Ciphers cipher, byte[] salt, byte[] nonce, int iterations, int parallelism, int memoryPowOfTwo)>
+    private async Task<(Cipher cipher, byte[] salt, byte[] nonce, int iterations, int parallelism, int memoryPowOfTwo)>
         ReadHeaderAsync(Stream input)
     {
         var header = await input.ReadBytesAsync(2);
@@ -116,7 +116,7 @@ public class Argon2DataEncryptionService
             throw new InvalidDataException("Invalid header");
         
         var typeValue = await input.ReadByteAsync();
-        if ((EncryptionTypes)typeValue != EncryptionTypes.ARGON2)
+        if ((EncryptionType)typeValue != EncryptionType.Argon2)
             throw new InvalidDataException("Invalid encryption type");
         
         var version = await input.ReadByteAsync();
@@ -124,7 +124,7 @@ public class Argon2DataEncryptionService
             throw new InvalidDataException("Invalid version");
         
         var cipherValue = await input.ReadByteAsync();
-        var cipher = (Ciphers)cipherValue; 
+        var cipher = (Cipher)cipherValue; 
         
         var salt = await input.ReadBytesAsync(16);
         var nonce = await input.ReadBytesAsync(12);

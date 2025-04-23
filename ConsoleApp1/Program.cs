@@ -33,7 +33,7 @@ static class Program
         using var outputEnc = new MemoryStream();
         
         var service = new Pbkdf2DataEncryptionService();
-        await service.EncryptAsync(inputEnc, outputEnc, "test1234", 100000, Ciphers.AES_256_GCM);
+        await service.EncryptAsync(inputEnc, outputEnc, "test1234", 100000, Cipher.Aes256Gcm);
         
         var encData = outputEnc.ToArray();
         
@@ -53,7 +53,7 @@ static class Program
         using var outputEnc = new MemoryStream();
         
         var service = new Argon2DataEncryptionService();
-        await service.EncryptAsync(inputEnc, outputEnc, "test1234".GetUtf8Bytes(), Ciphers.AES_256_GCM);
+        await service.EncryptAsync(inputEnc, outputEnc, "test1234".GetUtf8Bytes(), Cipher.Aes256Gcm);
         
         var encData = outputEnc.ToArray();
         
@@ -76,7 +76,7 @@ static class Program
         using var outputEnc = new MemoryStream();
 
         var service = new RsaDataEncryptionService();
-        await service.EncryptAsync(inputEnc, outputEnc, keyPair.Public, Ciphers.AES_256_GCM);
+        await service.EncryptAsync(inputEnc, outputEnc, keyPair.Public, Cipher.Aes256Gcm);
         
         var encData = outputEnc.ToArray();
         
@@ -99,7 +99,7 @@ static class Program
         using var outputEnc = new MemoryStream();
         
         var service = new MLKemDataEncryptionService();
-        await service.EncryptAsync(inputEnc, outputEnc, keyPair.Public, Ciphers.AES_256_GCM);
+        await service.EncryptAsync(inputEnc, outputEnc, keyPair.Public, Cipher.Aes256Gcm);
         
         var encData = outputEnc.ToArray();
         

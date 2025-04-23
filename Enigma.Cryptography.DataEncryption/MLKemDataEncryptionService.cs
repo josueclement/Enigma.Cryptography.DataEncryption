@@ -36,7 +36,7 @@ public class MLKemDataEncryptionService
     private async Task WriteHeaderAsync(Stream output, byte cipherValue, byte[] encapsulation, byte[] nonce)
     {
         await output.WriteBytesAsync([0xec, 0xde]);                 // Identifier
-        await output.WriteByteAsync((byte)EncryptionTypes.MLKEM);   // Type
+        await output.WriteByteAsync((byte)EncryptionType.MLKem);   // Type
         await output.WriteByteAsync(0x01);                          // Version
         await output.WriteByteAsync(cipherValue);                   // Cipher
         await output.WriteLengthValueAsync(encapsulation);          // Encapsulation
@@ -65,7 +65,7 @@ public class MLKemDataEncryptionService
         Stream input,
         Stream output,
         AsymmetricKeyParameter publicKey,
-        Ciphers cipher,
+        Cipher cipher,
         IProgress<long>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -107,14 +107,14 @@ public class MLKemDataEncryptionService
     /// <param name="input">The stream to read the header from</param>
     /// <returns>A tuple containing the cipher type, encapsulation data, and nonce</returns>
     /// <exception cref="InvalidDataException">Thrown when header validation fails</exception>
-    private async Task<(Ciphers cipher, byte[] encapsulation, byte[] nonce)> ReadHeaderAsync(Stream input)
+    private async Task<(Cipher cipher, byte[] encapsulation, byte[] nonce)> ReadHeaderAsync(Stream input)
     {
         var header = await input.ReadBytesAsync(2);
         if (header[0] != 0xec || header[1] != 0xde)
             throw new InvalidDataException("Invalid header");
         
         var typeValue = await input.ReadByteAsync();
-        if ((EncryptionTypes)typeValue != EncryptionTypes.MLKEM)
+        if ((EncryptionType)typeValue != EncryptionType.MLKem)
             throw new InvalidDataException("Invalid encryption type");
         
         var version = await input.ReadByteAsync();
@@ -122,7 +122,7 @@ public class MLKemDataEncryptionService
             throw new InvalidDataException("Invalid version");
         
         var cipherValue = await input.ReadByteAsync();
-        var cipher = (Ciphers)cipherValue; 
+        var cipher = (Cipher)cipherValue; 
         
         var encapsulation = await input.ReadLengthValueAsync();
         var nonce = await input.ReadBytesAsync(12);

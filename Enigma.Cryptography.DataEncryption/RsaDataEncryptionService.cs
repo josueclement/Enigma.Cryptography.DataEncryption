@@ -27,7 +27,7 @@ public class RsaDataEncryptionService
     private async Task WriteHeaderAsync(Stream output, byte cipherValue, byte[] encKey, byte[] nonce)
     {
         await output.WriteBytesAsync([0xec, 0xde]);             // Identifier
-        await output.WriteByteAsync((byte)EncryptionTypes.RSA); // Type
+        await output.WriteByteAsync((byte)EncryptionType.Rsa); // Type
         await output.WriteByteAsync(0x01);                      // Version
         await output.WriteByteAsync(cipherValue);               // Cipher
         await output.WriteLengthValueAsync(encKey);             // Encrypted key
@@ -58,7 +58,7 @@ public class RsaDataEncryptionService
         Stream input,
         Stream output,
         AsymmetricKeyParameter publicKey,
-        Ciphers cipher,
+        Cipher cipher,
         IProgress<long>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -96,14 +96,14 @@ public class RsaDataEncryptionService
     /// <param name="input">The stream containing the encrypted data.</param>
     /// <returns>A tuple containing the cipher algorithm, encrypted key, and nonce extracted from the header.</returns>
     /// <exception cref="InvalidDataException">Thrown when the header format is invalid.</exception>
-    private async Task<(Ciphers cipher, byte[] encKey, byte[] nonce)> ReadHeaderAsync(Stream input)
+    private async Task<(Cipher cipher, byte[] encKey, byte[] nonce)> ReadHeaderAsync(Stream input)
     {
         var header = await input.ReadBytesAsync(2);
         if (header[0] != 0xec || header[1] != 0xde)
             throw new InvalidDataException("Invalid header");
         
         var typeValue = await input.ReadByteAsync();
-        if ((EncryptionTypes)typeValue != EncryptionTypes.RSA)
+        if ((EncryptionType)typeValue != EncryptionType.Rsa)
             throw new InvalidDataException("Invalid encryption type");
         
         var version = await input.ReadByteAsync();
@@ -111,7 +111,7 @@ public class RsaDataEncryptionService
             throw new InvalidDataException("Invalid version");
         
         var cipherValue = await input.ReadByteAsync();
-        var cipher = (Ciphers)cipherValue; 
+        var cipher = (Cipher)cipherValue; 
         
         var encKey = await input.ReadLengthValueAsync();
         var nonce = await input.ReadBytesAsync(12);
