@@ -161,6 +161,7 @@ public class RsaDataEncryptionService
         // Create GCM parameters for block cipher service
         var bcsParameters = bcsParametersFactory.CreateGcmParameters(key, nonce); 
         
+        // Decrypt data
         await bcs.DecryptAsync(input, output, bcsParameters, progress, cancellationToken);
         
         Array.Clear(key, 0, key.Length);

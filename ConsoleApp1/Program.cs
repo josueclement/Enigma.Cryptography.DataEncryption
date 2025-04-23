@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading.Tasks;
 using Enigma.Cryptography.DataEncryption;
 using Enigma.Extensions;
+using Enigma.PQC;
 using Enigma.PublicKey;
 
 namespace ConsoleApp1;
@@ -14,8 +15,9 @@ static class Program
         try
         {
             // await TestPbkdf2();
-            await TestArgon2();
+            // await TestArgon2();
             // await TestRsa();
+            await TestMLKem();
         }
         catch (Exception ex)
         {
@@ -84,5 +86,28 @@ static class Program
         await service.DecryptAsync(inputDec, outputDec, keyPair.Private);
         
         var decData = outputDec.ToArray(); 
+    }
+    
+    static async Task TestMLKem()
+    {
+        var data = "This is a secret message".GetUtf8Bytes();
+
+        var mlKem = new MLKemServiceFactory().CreateKem1024();
+        var keyPair = mlKem.GenerateKeyPair();
+        
+        using var inputEnc = new MemoryStream(data);
+        using var outputEnc = new MemoryStream();
+        
+        var service = new MLKemDataEncryptionService();
+        await service.EncryptAsync(inputEnc, outputEnc, keyPair.Public, Ciphers.AES_256_GCM);
+        
+        var encData = outputEnc.ToArray();
+        
+        using var inputDec = new MemoryStream(encData);
+        using var outputDec = new MemoryStream();
+        
+        await service.DecryptAsync(inputDec, outputDec, keyPair.Private);
+        
+        var decData = outputDec.ToArray();
     }
 }
