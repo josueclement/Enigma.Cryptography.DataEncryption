@@ -1,12 +1,12 @@
-﻿using System;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
-using Enigma.BlockCiphers;
+﻿using Enigma.BlockCiphers;
 using Enigma.Extensions;
 using Enigma.PQC;
 using Enigma.Utils;
 using Org.BouncyCastle.Crypto;
+using System.IO;
+using System.Threading.Tasks;
+using System.Threading;
+using System;
 
 namespace Enigma.Cryptography.DataEncryption;
 
@@ -29,12 +29,23 @@ public class MLKemDataEncryptionService
     /// <returns>A task representing the asynchronous operation</returns>
     private async Task WriteHeaderAsync(Stream output, byte cipherValue, byte[] encapsulation, byte[] nonce)
     {
-        await output.WriteBytesAsync([0xec, 0xde]);                 // Identifier
-        await output.WriteByteAsync((byte)EncryptionType.MLKem);   // Type
-        await output.WriteByteAsync(0x01);                          // Version
-        await output.WriteByteAsync(cipherValue);                   // Cipher
-        await output.WriteLengthValueAsync(encapsulation);          // Encapsulation
-        await output.WriteBytesAsync(nonce);                        // Nonce 
+        // Identifier
+        await output.WriteBytesAsync([0xec, 0xde]);
+        
+        // Type
+        await output.WriteByteAsync((byte)EncryptionType.MLKem);
+        
+        // Version
+        await output.WriteByteAsync(0x01);
+        
+        // Cipher
+        await output.WriteByteAsync(cipherValue);
+        
+        // Encapsulation
+        await output.WriteLengthValueAsync(encapsulation);
+        
+        // Nonce
+        await output.WriteBytesAsync(nonce);
     }
     
     /// <summary>
@@ -43,16 +54,16 @@ public class MLKemDataEncryptionService
     /// </summary>
     /// <param name="input">The stream containing plaintext data to encrypt</param>
     /// <param name="output">The stream where encrypted data will be written</param>
-    /// <param name="publicKey">The recipient's ML-KEM public key</param>
     /// <param name="cipher">The symmetric cipher algorithm to use</param>
+    /// <param name="publicKey">The recipient's ML-KEM public key</param>
     /// <param name="progress">Optional progress reporting</param>
     /// <param name="cancellationToken">Token to cancel the operation</param>
     /// <returns>A task representing the asynchronous encryption operation</returns>
     public async Task EncryptAsync(
         Stream input,
         Stream output,
-        AsymmetricKeyParameter publicKey,
         Cipher cipher,
+        AsymmetricKeyParameter publicKey,
         IProgress<long>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -92,22 +103,29 @@ public class MLKemDataEncryptionService
     /// <exception cref="InvalidDataException">Thrown when header validation fails</exception>
     private async Task<(Cipher cipher, byte[] encapsulation, byte[] nonce)> ReadHeaderAsync(Stream input)
     {
+        // Identifier
         var header = await input.ReadBytesAsync(2);
         if (header[0] != 0xec || header[1] != 0xde)
             throw new InvalidDataException("Invalid header");
         
+        // Type
         var typeValue = await input.ReadByteAsync();
         if ((EncryptionType)typeValue != EncryptionType.MLKem)
             throw new InvalidDataException("Invalid encryption type");
         
+        // Version
         var version = await input.ReadByteAsync();
         if (version != 0x01)
             throw new InvalidDataException("Invalid version");
         
+        // Cipher
         var cipherValue = await input.ReadByteAsync();
         var cipher = (Cipher)cipherValue; 
         
+        // Encapsulation
         var encapsulation = await input.ReadLengthValueAsync();
+        
+        // Nonce
         var nonce = await input.ReadBytesAsync(12);
         
         return (cipher, encapsulation, nonce);

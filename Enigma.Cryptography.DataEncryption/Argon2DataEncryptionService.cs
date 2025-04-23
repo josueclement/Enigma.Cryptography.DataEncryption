@@ -1,11 +1,11 @@
-﻿using System;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
-using Enigma.BlockCiphers;
+﻿using Enigma.BlockCiphers;
 using Enigma.Extensions;
 using Enigma.KDF;
 using Enigma.Utils;
+using System.IO;
+using System.Threading.Tasks;
+using System.Threading;
+using System;
 
 namespace Enigma.Cryptography.DataEncryption;
 
@@ -37,15 +37,32 @@ public class Argon2DataEncryptionService
         int parallelism,
         int memoryPowOfTwo)
     {
-        await output.WriteBytesAsync([0xec, 0xde]);                 // Identifier
-        await output.WriteByteAsync((byte)EncryptionType.Argon2);  // Type
-        await output.WriteByteAsync(0x01);                          // Version
-        await output.WriteByteAsync(cipherValue);                   // Cipher
-        await output.WriteBytesAsync(salt);                         // Salt
-        await output.WriteBytesAsync(nonce);                        // Nonce
-        await output.WriteIntAsync(iterations);                     // Iterations 
-        await output.WriteIntAsync(parallelism);                    // Parallelism
-        await output.WriteIntAsync(memoryPowOfTwo);                 // Memory pow of two
+        // Identifier
+        await output.WriteBytesAsync([0xec, 0xde]);
+        
+        // Type
+        await output.WriteByteAsync((byte)EncryptionType.Argon2);
+        
+        // Version
+        await output.WriteByteAsync(0x01);
+        
+        // Cipher
+        await output.WriteByteAsync(cipherValue);
+        
+        // Salt
+        await output.WriteBytesAsync(salt);
+        
+        // Nonce
+        await output.WriteBytesAsync(nonce);
+        
+        // Iterations
+        await output.WriteIntAsync(iterations);
+        
+        // Parallelism
+        await output.WriteIntAsync(parallelism);
+        
+        // Memory pow of two
+        await output.WriteIntAsync(memoryPowOfTwo);
     }
     
     /// <summary>
@@ -54,8 +71,8 @@ public class Argon2DataEncryptionService
     /// </summary>
     /// <param name="input">The stream containing data to encrypt</param>
     /// <param name="output">The stream to write encrypted data to</param>
-    /// <param name="password">The password to derive the encryption key from</param>
     /// <param name="cipher">The cipher algorithm to use for encryption</param>
+    /// <param name="password">The password to derive the encryption key from</param>
     /// <param name="iterations">The number of iterations for Argon2 (default: 10)</param>
     /// <param name="parallelism">The parallelism factor for Argon2 (default: 4)</param>
     /// <param name="memoryPowOfTwo">The memory cost factor (power of two) for Argon2 (default: 16)</param>
@@ -65,8 +82,8 @@ public class Argon2DataEncryptionService
     public async Task EncryptAsync(
         Stream input,
         Stream output,
-        byte[] password,
         Cipher cipher,
+        byte[] password,
         int iterations = 10,
         int parallelism = 4,
         int memoryPowOfTwo = 16,
@@ -111,25 +128,38 @@ public class Argon2DataEncryptionService
     private async Task<(Cipher cipher, byte[] salt, byte[] nonce, int iterations, int parallelism, int memoryPowOfTwo)>
         ReadHeaderAsync(Stream input)
     {
+        // Identifier
         var header = await input.ReadBytesAsync(2);
         if (header[0] != 0xec || header[1] != 0xde)
             throw new InvalidDataException("Invalid header");
         
+        // Type
         var typeValue = await input.ReadByteAsync();
         if ((EncryptionType)typeValue != EncryptionType.Argon2)
             throw new InvalidDataException("Invalid encryption type");
         
+        // Version
         var version = await input.ReadByteAsync();
         if (version != 0x01)
             throw new InvalidDataException("Invalid version");
         
+        // Cipher
         var cipherValue = await input.ReadByteAsync();
         var cipher = (Cipher)cipherValue; 
         
+        // Salt
         var salt = await input.ReadBytesAsync(16);
+        
+        // Nonce
         var nonce = await input.ReadBytesAsync(12);
+        
+        // Iterations
         var iterations = await input.ReadIntAsync();
+        
+        // Parallelism
         var parallelism = await input.ReadIntAsync();
+        
+        // Memory pow of two
         var memoryPowOfTwo = await input.ReadIntAsync();
         
         return (cipher, salt, nonce, iterations, parallelism, memoryPowOfTwo);

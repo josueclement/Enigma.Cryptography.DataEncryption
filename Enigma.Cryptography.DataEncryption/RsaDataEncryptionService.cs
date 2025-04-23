@@ -1,12 +1,12 @@
-﻿using System;
-using System.IO;
-using System.Threading;
-using System.Threading.Tasks;
-using Enigma.BlockCiphers;
+﻿using Enigma.BlockCiphers;
 using Enigma.Extensions;
 using Enigma.PublicKey;
 using Enigma.Utils;
 using Org.BouncyCastle.Crypto;
+using System.IO;
+using System.Threading.Tasks;
+using System.Threading;
+using System;
 
 namespace Enigma.Cryptography.DataEncryption;
 
@@ -27,12 +27,23 @@ public class RsaDataEncryptionService
     /// <returns>A task representing the asynchronous write operation.</returns>
     private async Task WriteHeaderAsync(Stream output, byte cipherValue, byte[] encKey, byte[] nonce)
     {
-        await output.WriteBytesAsync([0xec, 0xde]);             // Identifier
-        await output.WriteByteAsync((byte)EncryptionType.Rsa); // Type
-        await output.WriteByteAsync(0x01);                      // Version
-        await output.WriteByteAsync(cipherValue);               // Cipher
-        await output.WriteLengthValueAsync(encKey);             // Encrypted key
-        await output.WriteBytesAsync(nonce);                    // Nonce 
+        // Identifier
+        await output.WriteBytesAsync([0xec, 0xde]);
+        
+        // Type
+        await output.WriteByteAsync((byte)EncryptionType.Rsa);
+        
+        // Version
+        await output.WriteByteAsync(0x01);
+        
+        // Cipher
+        await output.WriteByteAsync(cipherValue);
+        
+        // Encrypted key
+        await output.WriteLengthValueAsync(encKey);
+        
+        // Nonce
+        await output.WriteBytesAsync(nonce);
     }
     
     /// <summary>
@@ -40,16 +51,16 @@ public class RsaDataEncryptionService
     /// </summary>
     /// <param name="input">The stream containing the data to encrypt.</param>
     /// <param name="output">The stream where the encrypted data will be written.</param>
-    /// <param name="publicKey">The RSA public key used to encrypt the symmetric key.</param>
     /// <param name="cipher">The symmetric cipher algorithm to use for the data encryption (all operating in GCM mode).</param>
+    /// <param name="publicKey">The RSA public key used to encrypt the symmetric key.</param>
     /// <param name="progress">Optional progress reporting mechanism.</param>
     /// <param name="cancellationToken">Optional token to monitor for cancellation requests.</param>
     /// <returns>A task representing the asynchronous encryption operation.</returns>
     public async Task EncryptAsync(
         Stream input,
         Stream output,
-        AsymmetricKeyParameter publicKey,
         Cipher cipher,
+        AsymmetricKeyParameter publicKey,
         IProgress<long>? progress = null,
         CancellationToken cancellationToken = default)
     {
@@ -90,22 +101,29 @@ public class RsaDataEncryptionService
     /// <exception cref="InvalidDataException">Thrown when the header format is invalid.</exception>
     private async Task<(Cipher cipher, byte[] encKey, byte[] nonce)> ReadHeaderAsync(Stream input)
     {
+        // Identifier
         var header = await input.ReadBytesAsync(2);
         if (header[0] != 0xec || header[1] != 0xde)
             throw new InvalidDataException("Invalid header");
         
+        // Type
         var typeValue = await input.ReadByteAsync();
         if ((EncryptionType)typeValue != EncryptionType.Rsa)
             throw new InvalidDataException("Invalid encryption type");
         
+        // Version
         var version = await input.ReadByteAsync();
         if (version != 0x01)
             throw new InvalidDataException("Invalid version");
         
+        // Cipher
         var cipherValue = await input.ReadByteAsync();
         var cipher = (Cipher)cipherValue; 
         
+        // Encrypted key
         var encKey = await input.ReadLengthValueAsync();
+        
+        // Nonce
         var nonce = await input.ReadBytesAsync(12);
         
         return (cipher, encKey, nonce);

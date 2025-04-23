@@ -1,5 +1,5 @@
-﻿using System;
-using Enigma.BlockCiphers;
+﻿using Enigma.BlockCiphers;
+using System;
 
 namespace Enigma.Cryptography.DataEncryption;
 
