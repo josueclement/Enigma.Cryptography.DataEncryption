@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Threading.Tasks;
 using Enigma.Cryptography.DataEncryption;
 using Enigma.Extensions;
@@ -10,8 +11,15 @@ static class Program
 {
     static async Task Main(string[] args)
     {
-        // await TestPbkdf2();
-        await TestRsa();
+        try
+        {
+            await TestPbkdf2();
+            // await TestRsa();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
     }
 
     static async Task TestPbkdf2()
