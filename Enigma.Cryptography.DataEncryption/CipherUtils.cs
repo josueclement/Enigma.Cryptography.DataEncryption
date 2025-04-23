@@ -10,7 +10,7 @@ namespace Enigma.Cryptography.DataEncryption;
 /// This class contains factory methods that help create appropriate block cipher services
 /// based on the requested cipher algorithm.
 /// </remarks>
-public static class CipherUtils
+internal static class CipherUtils
 {
     /// <summary>
     /// Creates and returns an appropriate block cipher service based on the specified cipher algorithm.

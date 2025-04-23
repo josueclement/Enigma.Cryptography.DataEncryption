@@ -16,7 +16,8 @@ namespace Enigma.Cryptography.DataEncryption;
 public class Pbkdf2DataEncryptionService
 {
     /// <summary>
-    /// Writes the encryption header information to the output stream.
+    /// Writes the encryption header to the output stream. The header contains encryption
+    /// parameters that will be used later during decryption.
     /// </summary>
     /// <param name="output">The output stream to write the header to.</param>
     /// <param name="cipherValue">The byte value representing the cipher algorithm used.</param>
@@ -37,6 +38,7 @@ public class Pbkdf2DataEncryptionService
     
     /// <summary>
     /// Encrypts the data from the input stream and writes it to the output stream.
+    /// Uses PBKDF2 for key derivation with the provided password and encryption parameters.
     /// </summary>
     /// <param name="input">The input stream containing data to encrypt.</param>
     /// <param name="output">The output stream where encrypted data will be written.</param>
@@ -84,7 +86,8 @@ public class Pbkdf2DataEncryptionService
     }
 
     /// <summary>
-    /// Reads and validates the encryption header from the input stream.
+    /// Reads and parses the encryption header from the input stream to extract
+    /// the parameters needed for decryption.
     /// </summary>
     /// <param name="input">The input stream containing the encrypted data.</param>
     /// <returns>A tuple containing the cipher algorithm, salt, nonce, and iterations extracted from the header.</returns>
@@ -114,7 +117,9 @@ public class Pbkdf2DataEncryptionService
     }
     
     /// <summary>
-    /// Decrypts the data from the input stream and writes it to the output stream.
+    /// Decrypts data from the input stream and writes the decrypted result to the output stream.
+    /// Reads encryption parameters from the header and uses PBKDF2 for key derivation with the
+    /// provided password.
     /// </summary>
     /// <param name="input">The input stream containing encrypted data.</param>
     /// <param name="output">The output stream where decrypted data will be written.</param>
@@ -135,6 +140,7 @@ public class Pbkdf2DataEncryptionService
         var bcsEngineFactory = new BlockCipherEngineFactory();
         var bcsParametersFactory = new BlockCipherParametersFactory();
         
+        // Read header
         var (cipher, salt, nonce, iterations) = await ReadHeaderAsync(input);
         
         // Get block cipher service from cipher enum

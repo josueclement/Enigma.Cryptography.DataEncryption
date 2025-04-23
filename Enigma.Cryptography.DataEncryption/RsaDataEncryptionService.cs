@@ -17,7 +17,8 @@ namespace Enigma.Cryptography.DataEncryption;
 public class RsaDataEncryptionService
 {
     /// <summary>
-    /// Writes the encryption header information to the output stream.
+    /// Writes the encryption header to the output stream. The header contains encryption
+    /// parameters that will be used later during decryption.
     /// </summary>
     /// <param name="output">The stream to write the header information to.</param>
     /// <param name="cipherValue">The byte value representing the cipher algorithm used.</param>
@@ -44,16 +45,6 @@ public class RsaDataEncryptionService
     /// <param name="progress">Optional progress reporting mechanism.</param>
     /// <param name="cancellationToken">Optional token to monitor for cancellation requests.</param>
     /// <returns>A task representing the asynchronous encryption operation.</returns>
-    /// <remarks>
-    /// This method uses a hybrid encryption approach:
-    /// <list type="number">
-    /// <item><description>Generates a random symmetric key and nonce</description></item>
-    /// <item><description>Encrypts the data using the selected symmetric cipher in GCM mode</description></item>
-    /// <item><description>Encrypts the symmetric key using the RSA public key</description></item>
-    /// <item><description>Writes a header containing the encrypted key, cipher algorithm, and other metadata</description></item>
-    /// <item><description>Securely clears the symmetric key from memory when finished</description></item>
-    /// </list>
-    /// </remarks>
     public async Task EncryptAsync(
         Stream input,
         Stream output,
@@ -91,7 +82,8 @@ public class RsaDataEncryptionService
     }
 
     /// <summary>
-    /// Reads and validates the encryption header from the input stream.
+    /// Reads and parses the encryption header from the input stream to extract
+    /// the parameters needed for decryption.
     /// </summary>
     /// <param name="input">The stream containing the encrypted data.</param>
     /// <returns>A tuple containing the cipher algorithm, encrypted key, and nonce extracted from the header.</returns>
@@ -128,15 +120,6 @@ public class RsaDataEncryptionService
     /// <param name="progress">Optional progress reporting mechanism.</param>
     /// <param name="cancellationToken">Optional token to monitor for cancellation requests.</param>
     /// <returns>A task representing the asynchronous decryption operation.</returns>
-    /// <remarks>
-    /// This method performs the reverse of the hybrid encryption approach:
-    /// <list type="number">
-    /// <item><description>Reads the header to extract the encrypted symmetric key, cipher algorithm, and nonce</description></item>
-    /// <item><description>Decrypts the symmetric key using the RSA private key</description></item>
-    /// <item><description>Uses the symmetric key to decrypt the data with the appropriate cipher in GCM mode</description></item>
-    /// <item><description>Securely clears the symmetric key from memory when finished</description></item>
-    /// </list>
-    /// </remarks>
     public async Task DecryptAsync(
         Stream input,
         Stream output,
@@ -164,6 +147,7 @@ public class RsaDataEncryptionService
         // Decrypt data
         await bcs.DecryptAsync(input, output, bcsParameters, progress, cancellationToken);
         
+        // Clear key from memory
         Array.Clear(key, 0, key.Length);
     }
 }

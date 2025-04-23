@@ -158,6 +158,7 @@ public class Argon2DataEncryptionService
         var bcsEngineFactory = new BlockCipherEngineFactory();
         var bcsParametersFactory = new BlockCipherParametersFactory();
         
+        // Read header and extract encryption parameters
         var (cipher, salt, nonce, iterations, parallelism, memoryPowOfTwo) = await ReadHeaderAsync(input);
         
         // Get block cipher service from cipher enum

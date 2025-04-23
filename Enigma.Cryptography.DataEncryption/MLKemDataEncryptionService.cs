@@ -19,14 +19,8 @@ namespace Enigma.Cryptography.DataEncryption;
 public class MLKemDataEncryptionService
 {
     /// <summary>
-    /// Writes the encryption header to the output stream.
-    /// The header contains metadata necessary for decryption, including:
-    /// - Magic identifier (0xECDE)
-    /// - Encryption type (ML-KEM)
-    /// - Version information
-    /// - Cipher algorithm identifier
-    /// - ML-KEM encapsulation data
-    /// - Nonce (initialization vector)
+    /// Writes the encryption header to the output stream. The header contains encryption
+    /// parameters that will be used later during decryption.
     /// </summary>
     /// <param name="output">The stream to write the header to</param>
     /// <param name="cipherValue">The byte representing the cipher algorithm used</param>
@@ -46,13 +40,6 @@ public class MLKemDataEncryptionService
     /// <summary>
     /// Encrypts data from the input stream to the output stream using ML-KEM key encapsulation
     /// combined with a symmetric block cipher.
-    /// 
-    /// The process:
-    /// 1. Generates an ML-KEM encapsulation and shared secret using the provided public key
-    /// 2. Uses the shared secret as the key for the symmetric cipher
-    /// 3. Writes header information to the output stream
-    /// 4. Encrypts the input stream data using the chosen cipher in GCM mode
-    /// 5. Securely clears sensitive data from memory
     /// </summary>
     /// <param name="input">The stream containing plaintext data to encrypt</param>
     /// <param name="output">The stream where encrypted data will be written</param>
@@ -80,6 +67,7 @@ public class MLKemDataEncryptionService
         // Generate random nonce
         var nonce = RandomUtils.GenerateRandomBytes(12);
 
+        // Encapsulate secret key using public key
         var (encapsulation, secret) = mlKemService.Encapsulate(publicKey);
         
         // Create GCM parameters for block cipher service
@@ -96,13 +84,8 @@ public class MLKemDataEncryptionService
     }
     
     /// <summary>
-    /// Reads and validates the encryption header from the input stream.
-    /// Extracts the cipher type, encapsulation data, and nonce needed for decryption.
-    /// 
-    /// Performs validation checks on:
-    /// - Magic identifier (0xECDE)
-    /// - Encryption type (ML-KEM)
-    /// - Version information
+    /// Reads and parses the encryption header from the input stream to extract
+    /// the parameters needed for decryption.
     /// </summary>
     /// <param name="input">The stream to read the header from</param>
     /// <returns>A tuple containing the cipher type, encapsulation data, and nonce</returns>
@@ -132,13 +115,6 @@ public class MLKemDataEncryptionService
     
     /// <summary>
     /// Decrypts data from the input stream to the output stream using ML-KEM and a symmetric block cipher.
-    /// 
-    /// The process:
-    /// 1. Reads header information from the input stream
-    /// 2. Decapsulates the shared secret using the provided private key and encapsulation data from the header
-    /// 3. Configures the block cipher with the shared secret and nonce from the header
-    /// 4. Decrypts the input stream data using the identified cipher in GCM mode
-    /// 5. Securely clears sensitive data from memory
     /// </summary>
     /// <param name="input">The stream containing encrypted data to decrypt</param>
     /// <param name="output">The stream where decrypted data will be written</param>
@@ -158,6 +134,7 @@ public class MLKemDataEncryptionService
         var bcsEngineFactory = new BlockCipherEngineFactory();
         var bcsParametersFactory = new BlockCipherParametersFactory();
 
+        // Read header
         var (cipher, encapsulation, nonce) = await ReadHeaderAsync(input);
         
         // Get block cipher service from cipher enum
