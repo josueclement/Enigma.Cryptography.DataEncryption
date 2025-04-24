@@ -39,11 +39,11 @@ public class RsaDataEncryptionService
         // Cipher
         await output.WriteByteAsync(cipherValue);
         
-        // Encrypted key
-        await output.WriteLengthValueAsync(encKey);
-        
         // Nonce
         await output.WriteBytesAsync(nonce);
+        
+        // Encrypted key
+        await output.WriteLengthValueAsync(encKey);
     }
     
     /// <summary>
@@ -120,11 +120,11 @@ public class RsaDataEncryptionService
         var cipherValue = await input.ReadByteAsync();
         var cipher = (Cipher)cipherValue; 
         
-        // Encrypted key
-        var encKey = await input.ReadLengthValueAsync();
-        
         // Nonce
         var nonce = await input.ReadBytesAsync(12);
+        
+        // Encrypted key
+        var encKey = await input.ReadLengthValueAsync();
         
         return (cipher, encKey, nonce);
     }

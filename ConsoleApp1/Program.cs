@@ -14,9 +14,9 @@ static class Program
     {
         try
         {
-            // await TestPbkdf2();
-            // await TestArgon2();
-            // await TestRsa();
+            await TestPbkdf2();
+            await TestArgon2();
+            await TestRsa();
             await TestMLKem();
         }
         catch (Exception ex)
@@ -25,8 +25,19 @@ static class Program
         }
     }
 
+    static bool CheckValidity(byte[] data, byte[] decryptedData)
+    {
+        if (data.Length != decryptedData.Length)
+            return false;
+        for (int i = 0; i < data.Length; i++)
+            if (data[i] != decryptedData[i])
+                return false;
+        return true;
+    }
+
     static async Task TestPbkdf2()
     {
+        Console.Write("Pbkdf2DataEncryptionService: ");
         var data = "This is a secret message".GetUtf8Bytes();
         
         using var inputEnc = new MemoryStream(data);
@@ -43,10 +54,13 @@ static class Program
         await service.DecryptAsync(inputDec, outputDec, "test1234");
         
         var decData = outputDec.ToArray(); 
+        
+        Console.WriteLine(CheckValidity(data, decData) ? "OK" : "FAILED" );
     }
     
     static async Task TestArgon2()
     {
+        Console.Write("Argon2DataEncryptionService: ");
         var data = "This is a secret message".GetUtf8Bytes();
         
         using var inputEnc = new MemoryStream(data);
@@ -63,10 +77,13 @@ static class Program
         await service.DecryptAsync(inputDec, outputDec, "test1234".GetUtf8Bytes());
         
         var decData = outputDec.ToArray();
+        
+        Console.WriteLine(CheckValidity(data, decData) ? "OK" : "FAILED" );
     }
 
     static async Task TestRsa()
     {
+        Console.Write("RsaDataEncryptionService: ");
         var data = "This is a secret message".GetUtf8Bytes();
 
         var rsa = new PublicKeyServiceFactory().CreateRsaService();
@@ -86,10 +103,13 @@ static class Program
         await service.DecryptAsync(inputDec, outputDec, keyPair.Private);
         
         var decData = outputDec.ToArray(); 
+        
+        Console.WriteLine(CheckValidity(data, decData) ? "OK" : "FAILED" );
     }
     
     static async Task TestMLKem()
     {
+        Console.Write("MLKemDataEncryptionService: ");
         var data = "This is a secret message".GetUtf8Bytes();
 
         var mlKem = new MLKemServiceFactory().CreateKem1024();
@@ -109,5 +129,7 @@ static class Program
         await service.DecryptAsync(inputDec, outputDec, keyPair.Private);
         
         var decData = outputDec.ToArray();
+        
+        Console.WriteLine(CheckValidity(data, decData) ? "OK" : "FAILED" );
     }
 }

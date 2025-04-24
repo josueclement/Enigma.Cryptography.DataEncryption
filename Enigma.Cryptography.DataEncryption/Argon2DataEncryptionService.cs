@@ -49,11 +49,11 @@ public class Argon2DataEncryptionService
         // Cipher
         await output.WriteByteAsync(cipherValue);
         
-        // Salt
-        await output.WriteBytesAsync(salt);
-        
         // Nonce
         await output.WriteBytesAsync(nonce);
+        
+        // Salt
+        await output.WriteBytesAsync(salt);
         
         // Iterations
         await output.WriteIntAsync(iterations);
@@ -147,11 +147,11 @@ public class Argon2DataEncryptionService
         var cipherValue = await input.ReadByteAsync();
         var cipher = (Cipher)cipherValue; 
         
-        // Salt
-        var salt = await input.ReadBytesAsync(16);
-        
         // Nonce
         var nonce = await input.ReadBytesAsync(12);
+        
+        // Salt
+        var salt = await input.ReadBytesAsync(16);
         
         // Iterations
         var iterations = await input.ReadIntAsync();

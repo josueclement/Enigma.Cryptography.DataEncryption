@@ -41,11 +41,11 @@ public class MLKemDataEncryptionService
         // Cipher
         await output.WriteByteAsync(cipherValue);
         
-        // Encapsulation
-        await output.WriteLengthValueAsync(encapsulation);
-        
         // Nonce
         await output.WriteBytesAsync(nonce);
+        
+        // Encapsulation
+        await output.WriteLengthValueAsync(encapsulation);
     }
     
     /// <summary>
@@ -122,11 +122,11 @@ public class MLKemDataEncryptionService
         var cipherValue = await input.ReadByteAsync();
         var cipher = (Cipher)cipherValue; 
         
-        // Encapsulation
-        var encapsulation = await input.ReadLengthValueAsync();
-        
         // Nonce
         var nonce = await input.ReadBytesAsync(12);
+        
+        // Encapsulation
+        var encapsulation = await input.ReadLengthValueAsync();
         
         return (cipher, encapsulation, nonce);
     }
