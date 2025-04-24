@@ -22,8 +22,8 @@ public class Argon2DataEncryptionService
     /// </summary>
     /// <param name="output">The stream to write the header to</param>
     /// <param name="cipherValue">The cipher algorithm identifier</param>
-    /// <param name="salt">The salt used for key derivation</param>
     /// <param name="nonce">The nonce (initialization vector) used for encryption</param>
+    /// <param name="salt">The salt used for key derivation</param>
     /// <param name="iterations">The number of iterations for Argon2</param>
     /// <param name="parallelism">The parallelism factor for Argon2</param>
     /// <param name="memoryPowOfTwo">The memory cost factor (power of two) for Argon2</param>
@@ -31,8 +31,8 @@ public class Argon2DataEncryptionService
     private async Task WriteHeaderAsync(
         Stream output,
         byte cipherValue,
-        byte[] salt,
         byte[] nonce,
+        byte[] salt,
         int iterations,
         int parallelism,
         int memoryPowOfTwo)
@@ -109,7 +109,7 @@ public class Argon2DataEncryptionService
         var bcsParameters = bcsParametersFactory.CreateGcmParameters(key, nonce);
         
         // Write header
-        await WriteHeaderAsync(output, (byte)cipher, salt, nonce, iterations, parallelism, memoryPowOfTwo);
+        await WriteHeaderAsync(output, (byte)cipher, nonce, salt, iterations, parallelism, memoryPowOfTwo);
         
         // Encrypt data
         await bcs.EncryptAsync(input, output, bcsParameters, progress, cancellationToken);
@@ -125,7 +125,7 @@ public class Argon2DataEncryptionService
     /// <param name="input">The stream to read the header from</param>
     /// <returns>A tuple containing the cipher algorithm and encryption parameters</returns>
     /// <exception cref="InvalidDataException">Thrown when the header is invalid</exception>
-    private async Task<(Cipher cipher, byte[] salt, byte[] nonce, int iterations, int parallelism, int memoryPowOfTwo)>
+    private async Task<(Cipher cipher, byte[] nonce, byte[] salt, int iterations, int parallelism, int memoryPowOfTwo)>
         ReadHeaderAsync(Stream input)
     {
         // Identifier
@@ -162,7 +162,7 @@ public class Argon2DataEncryptionService
         // Memory pow of two
         var memoryPowOfTwo = await input.ReadIntAsync();
         
-        return (cipher, salt, nonce, iterations, parallelism, memoryPowOfTwo);
+        return (cipher, nonce, salt, iterations, parallelism, memoryPowOfTwo);
     }
 
     /// <summary>
@@ -189,7 +189,7 @@ public class Argon2DataEncryptionService
         var bcsParametersFactory = new BlockCipherParametersFactory();
         
         // Read header and extract encryption parameters
-        var (cipher, salt, nonce, iterations, parallelism, memoryPowOfTwo) = await ReadHeaderAsync(input);
+        var (cipher, nonce, salt, iterations, parallelism, memoryPowOfTwo) = await ReadHeaderAsync(input);
         
         // Get block cipher service from cipher enum
         var bcs = CipherUtils.GetBlockCipherService(cipher, bcsFactory, bcsEngineFactory);

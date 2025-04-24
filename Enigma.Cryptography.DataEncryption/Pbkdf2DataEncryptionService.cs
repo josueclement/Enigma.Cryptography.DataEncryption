@@ -21,11 +21,11 @@ public class Pbkdf2DataEncryptionService
     /// </summary>
     /// <param name="output">The output stream to write the header to.</param>
     /// <param name="cipherValue">The byte value representing the cipher algorithm used.</param>
-    /// <param name="salt">The salt bytes used for key derivation.</param>
     /// <param name="nonce">The nonce bytes used for encryption.</param>
+    /// <param name="salt">The salt bytes used for key derivation.</param>
     /// <param name="iterations">The number of iterations used in the PBKDF2 algorithm.</param>
     /// <returns>A task representing the asynchronous write operation.</returns>
-    private async Task WriteHeaderAsync(Stream output, byte cipherValue, byte[] salt, byte[] nonce, int iterations)
+    private async Task WriteHeaderAsync(Stream output, byte cipherValue, byte[] nonce, byte[] salt, int iterations)
     {
         // Identifier
         await output.WriteBytesAsync([0xec, 0xde]);
@@ -89,7 +89,7 @@ public class Pbkdf2DataEncryptionService
         var bcsParameters = bcsParametersFactory.CreateGcmParameters(key, nonce);
         
         // Write header
-        await WriteHeaderAsync(output, (byte)cipher, salt, nonce, iterations);
+        await WriteHeaderAsync(output, (byte)cipher, nonce, salt, iterations);
         
         // Encrypt data
         await bcs.EncryptAsync(input, output, bcsParameters, progress, cancellationToken);
@@ -103,9 +103,9 @@ public class Pbkdf2DataEncryptionService
     /// the parameters needed for decryption.
     /// </summary>
     /// <param name="input">The input stream containing the encrypted data.</param>
-    /// <returns>A tuple containing the cipher algorithm, salt, nonce, and iterations extracted from the header.</returns>
+    /// <returns>A tuple containing the cipher algorithm, nonce, salt, and iterations extracted from the header.</returns>
     /// <exception cref="InvalidDataException">Thrown when the header is invalid or unsupported.</exception>
-    private async Task<(Cipher cipher, byte[] salt, byte[] nonce, int iterations)> ReadHeaderAsync(Stream input)
+    private async Task<(Cipher cipher, byte[] nonce, byte[] salt, int iterations)> ReadHeaderAsync(Stream input)
     {
         // Identifier
         var header = await input.ReadBytesAsync(2);
@@ -135,7 +135,7 @@ public class Pbkdf2DataEncryptionService
         // Iterations
         var iterations = await input.ReadIntAsync();
         
-        return (cipher, salt, nonce, iterations);
+        return (cipher, nonce, salt, iterations);
     }
     
     /// <summary>
@@ -163,7 +163,7 @@ public class Pbkdf2DataEncryptionService
         var bcsParametersFactory = new BlockCipherParametersFactory();
         
         // Read header
-        var (cipher, salt, nonce, iterations) = await ReadHeaderAsync(input);
+        var (cipher, nonce, salt, iterations) = await ReadHeaderAsync(input);
         
         // Get block cipher service from cipher enum
         var bcs = CipherUtils.GetBlockCipherService(cipher, bcsFactory, bcsEngineFactory);
