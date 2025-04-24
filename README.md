@@ -98,7 +98,7 @@ Data encryption service with RSA.
 | Name                 | Length (bytes) | Description                                                             |
 |----------------------|----------------|-------------------------------------------------------------------------|
 | Identifier           | 2              | Fixed value `[0xec, 0xde]` that identifies encryption with this library |
-| Encryption type      | 1              | Fixed value `0x02` that identifies encryption with Argon2               |
+| Encryption type      | 1              | Fixed value `0x03` that identifies encryption with RSA                  |
 | Version              | 1              | Current version: `0x01`                                                 |
 | Cipher               | 1              | Cipher identifier (see table below)                                     |
 | Nonce                | 12             | Random nonce for encryption with GCM mode                               |
@@ -132,7 +132,7 @@ Data encryption service with ML-KEM.
 | Name                 | Length (bytes) | Description                                                             |
 |----------------------|----------------|-------------------------------------------------------------------------|
 | Identifier           | 2              | Fixed value `[0xec, 0xde]` that identifies encryption with this library |
-| Encryption type      | 1              | Fixed value `0x02` that identifies encryption with Argon2               |
+| Encryption type      | 1              | Fixed value `0x04` that identifies encryption with ML-KEM               |
 | Version              | 1              | Current version: `0x01`                                                 |
 | Cipher               | 1              | Cipher identifier (see table below)                                     |
 | Nonce                | 12             | Random nonce for encryption with GCM mode                               |
