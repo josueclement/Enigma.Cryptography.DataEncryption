@@ -12,17 +12,17 @@ Encryption/decryption service with PBKDF2 algorithm.
 
 - A block cipher service is initialized with the specified cipher in GCM mode.
 - A random 16-bytes salt and a random 12-bytes nonce are generated.
-- A 32-bytes key is generated with PBKDF2 algorithm with the password, salt and iterations
-- The header is written to the output stream
-- The input stream is encrypted into the output stream with the key and nonce
-- The key is cleared from memory
+- A 32-bytes key is generated with PBKDF2 algorithm.
+- The header is written to the output stream.
+- The input stream is encrypted into the output stream with the key and nonce.
+- The key is cleared from memory.
 
 ### Decryption process
 
-- The header (cipher, salt, nonce and iterations) is read from the input stream
-- A 32-bytes key is generated with PBKDF2 algorithm with the password and the salt and iterations read from the header
+- The header is read from the input stream.
+- A 32-bytes key is generated with PBKDF2 algorithm.
 - A block cipher service is initialized with the cipher in GCM mode.
-- The input stream is decrypted into the output stream with the key and nonce
+- The input stream is decrypted into the output stream with the key and nonce.
 
 ### Data structure
 
@@ -40,6 +40,22 @@ Encryption/decryption service with PBKDF2 algorithm.
 ## Argon2DataEncryptionService
 
 Data encryption service with Argon2id algorithm.
+
+### Encryption process
+
+- A block cipher service is initialized with the specified cipher in GCM mode.
+- A random 16-bytes salt and a random 12-bytes nonce are generated.
+- A 32-bytes key is generated with Argon2id algorithm.
+- The header is written to the output stream.
+- The input stream is encrypted into the output stream with the key and nonce.
+- The key is cleared from memory.
+
+### Decryption process
+
+- The header is read from the input stream.
+- A 32-bytes key is generated with Argon2 algorithm.
+- A block cipher service is initialized with the cipher in GCM mode.
+- The input stream is decrypted into the output stream with the key and nonce.
 
 ### Data structure
 
@@ -60,6 +76,23 @@ Data encryption service with Argon2id algorithm.
 
 Data encryption service with RSA.
 
+### Encryption process
+
+- A block cipher service is initialized with the specified cipher in GCM mode.
+- A random 32-bytes key and a random 12-bytes nonce are generated.
+- The random key is encrypted with the public RSA key.
+- The header is written to the output stream.
+- The input stream is encrypted into the output stream with the key and nonce.
+- The key is cleared from memory.
+
+### Decryption process
+
+- The header is read from the input stream.
+- The encrypted key read from header is decrypted with the private RSA key.
+- A block cipher service is initialized with the cipher in GCM mode.
+- The input stream is decrypted into the output stream with the key and nonce.
+- The decrypted key is cleared from memory.
+
 ### Data structure
 
 | Name                 | Length (bytes) | Description                                                             |
@@ -76,6 +109,23 @@ Data encryption service with RSA.
 ## MLKemDataEncryptionService
 
 Data encryption service with ML-KEM.
+
+### Encryption process
+
+- A block cipher service is initialized with the specified cipher in GCM mode.
+- A random 12-bytes nonce is generated.
+- A 32-bytes key is generated from the ML-KEM public key.
+- The header is written to the output stream.
+- The input stream is encrypted into the output stream with the key and nonce.
+- The key is cleared from memory.
+
+### Decryption process
+
+- The header is read from the input stream.
+- The key is decapsulated with the ML-KEM private key.
+- A block cipher service is initialized with the cipher in GCM mode.
+- The input stream is decrypted into the output stream with the key and nonce.
+- The decrypted key is cleared from memory.
 
 ### Data structure
 
