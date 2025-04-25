@@ -165,6 +165,8 @@ public class RsaDataEncryptionService
         IProgress<int>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        
         var rsaService = new PublicKeyServiceFactory().CreateRsaService();
         var bcsFactory = new BlockCipherServiceFactory();
         var bcsEngineFactory = new BlockCipherEngineFactory();

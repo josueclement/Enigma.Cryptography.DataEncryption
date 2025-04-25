@@ -167,6 +167,8 @@ public class MLKemDataEncryptionService
         IProgress<int>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        
         var mlKemService = new MLKemServiceFactory().CreateKem1024();
         var bcsFactory = new BlockCipherServiceFactory();
         var bcsEngineFactory = new BlockCipherEngineFactory();

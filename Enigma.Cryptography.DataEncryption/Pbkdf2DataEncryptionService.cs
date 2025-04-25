@@ -178,6 +178,8 @@ public class Pbkdf2DataEncryptionService
         IProgress<int>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        
         var pbkdf2Service = new Pbkdf2Service();
         var bcsFactory = new BlockCipherServiceFactory();
         var bcsEngineFactory = new BlockCipherEngineFactory();
