@@ -26,9 +26,17 @@ public class MLKemDataEncryptionService
     /// <param name="cipherValue">The byte representing the cipher algorithm used</param>
     /// <param name="encapsulation">The ML-KEM encapsulation data</param>
     /// <param name="nonce">The nonce/initialization vector used for encryption</param>
+    /// <param name="cancellationToken">Token to cancel the operation</param>
     /// <returns>A task representing the asynchronous operation</returns>
-    private async Task WriteHeaderAsync(Stream output, byte cipherValue, byte[] encapsulation, byte[] nonce)
+    private async Task WriteHeaderAsync(
+        Stream output,
+        byte cipherValue,
+        byte[] encapsulation,
+        byte[] nonce,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        
         // Identifier
         await output.WriteBytesAsync([0xec, 0xde]);
         
@@ -64,9 +72,11 @@ public class MLKemDataEncryptionService
         Stream output,
         Cipher cipher,
         AsymmetricKeyParameter publicKey,
-        IProgress<long>? progress = null,
+        IProgress<int>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        
         var mlKemService = new MLKemServiceFactory().CreateKem1024();
         var bcsFactory = new BlockCipherServiceFactory();
         var bcsEngineFactory = new BlockCipherEngineFactory();
@@ -85,7 +95,7 @@ public class MLKemDataEncryptionService
         var bcsParameters = bcsParametersFactory.CreateGcmParameters(secret, nonce);
         
         // Write header
-        await WriteHeaderAsync(output, (byte)cipher, encapsulation, nonce);
+        await WriteHeaderAsync(output, (byte)cipher, encapsulation, nonce, cancellationToken);
         
         // Encrypt data
         await bcs.EncryptAsync(input, output, bcsParameters, progress, cancellationToken);
@@ -99,10 +109,17 @@ public class MLKemDataEncryptionService
     /// the parameters needed for decryption.
     /// </summary>
     /// <param name="input">The stream to read the header from</param>
+    /// <param name="progress">Optional progress reporting</param>
+    /// <param name="cancellationToken">Token to cancel the operation</param>
     /// <returns>A tuple containing the cipher type, encapsulation data, and nonce</returns>
     /// <exception cref="InvalidDataException">Thrown when header validation fails</exception>
-    private async Task<(Cipher cipher, byte[] encapsulation, byte[] nonce)> ReadHeaderAsync(Stream input)
+    private async Task<(Cipher cipher, byte[] encapsulation, byte[] nonce)> ReadHeaderAsync(
+        Stream input,
+        IProgress<int>? progress = null,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        
         // Identifier
         var header = await input.ReadBytesAsync(2);
         if (header[0] != 0xec || header[1] != 0xde)
@@ -128,6 +145,9 @@ public class MLKemDataEncryptionService
         // Encapsulation
         var encapsulation = await input.ReadLengthValueAsync();
         
+        // Progress
+        progress?.Report(21 + encapsulation.Length);
+        
         return (cipher, encapsulation, nonce);
     }
     
@@ -144,16 +164,18 @@ public class MLKemDataEncryptionService
         Stream input,
         Stream output,
         AsymmetricKeyParameter privateKey,
-        IProgress<long>? progress = null,
+        IProgress<int>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        
         var mlKemService = new MLKemServiceFactory().CreateKem1024();
         var bcsFactory = new BlockCipherServiceFactory();
         var bcsEngineFactory = new BlockCipherEngineFactory();
         var bcsParametersFactory = new BlockCipherParametersFactory();
 
         // Read header
-        var (cipher, encapsulation, nonce) = await ReadHeaderAsync(input);
+        var (cipher, encapsulation, nonce) = await ReadHeaderAsync(input, progress, cancellationToken);
         
         // Get block cipher service from cipher enum
         var bcs = CipherUtils.GetBlockCipherService(cipher, bcsFactory, bcsEngineFactory);

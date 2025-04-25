@@ -1,16 +1,16 @@
-﻿using System;
-using System.IO;
-using System.Threading.Tasks;
-using Enigma.Cryptography.DataEncryption;
+﻿using Enigma.Cryptography.DataEncryption;
 using Enigma.Extensions;
 using Enigma.PQC;
 using Enigma.PublicKey;
+using System.IO;
+using System.Threading.Tasks;
+using System;
 
 namespace ConsoleApp1;
 
 static class Program
 {
-    static async Task Main(string[] args)
+    static async Task Main()
     {
         try
         {
@@ -107,6 +107,7 @@ static class Program
         Console.WriteLine(CheckValidity(data, decData) ? "OK" : "FAILED" );
     }
     
+    // ReSharper disable once InconsistentNaming
     static async Task TestMLKem()
     {
         Console.Write("MLKemDataEncryptionService: ");
