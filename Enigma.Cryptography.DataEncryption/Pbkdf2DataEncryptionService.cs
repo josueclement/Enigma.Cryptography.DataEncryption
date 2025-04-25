@@ -24,9 +24,18 @@ public class Pbkdf2DataEncryptionService
     /// <param name="nonce">The nonce bytes used for encryption.</param>
     /// <param name="salt">The salt bytes used for key derivation.</param>
     /// <param name="iterations">The number of iterations used in the PBKDF2 algorithm.</param>
+    /// <param name="cancellationToken">Optional token to cancel the operation.</param>
     /// <returns>A task representing the asynchronous write operation.</returns>
-    private async Task WriteHeaderAsync(Stream output, byte cipherValue, byte[] nonce, byte[] salt, int iterations)
+    private async Task WriteHeaderAsync(
+        Stream output,
+        byte cipherValue,
+        byte[] nonce,
+        byte[] salt,
+        int iterations,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        
         // Identifier
         await output.WriteBytesAsync([0xec, 0xde]);
         
@@ -67,9 +76,11 @@ public class Pbkdf2DataEncryptionService
         Cipher cipher,
         string password,
         int iterations,
-        IProgress<long>? progress = null,
+        IProgress<int>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        
         var pbkdf2Service = new Pbkdf2Service();
         var bcsFactory = new BlockCipherServiceFactory();
         var bcsEngineFactory = new BlockCipherEngineFactory();
@@ -89,7 +100,7 @@ public class Pbkdf2DataEncryptionService
         var bcsParameters = bcsParametersFactory.CreateGcmParameters(key, nonce);
         
         // Write header
-        await WriteHeaderAsync(output, (byte)cipher, nonce, salt, iterations);
+        await WriteHeaderAsync(output, (byte)cipher, nonce, salt, iterations, cancellationToken);
         
         // Encrypt data
         await bcs.EncryptAsync(input, output, bcsParameters, progress, cancellationToken);
@@ -103,10 +114,17 @@ public class Pbkdf2DataEncryptionService
     /// the parameters needed for decryption.
     /// </summary>
     /// <param name="input">The input stream containing the encrypted data.</param>
+    /// <param name="progress">Optional progress reporting interface.</param>
+    /// <param name="cancellationToken">Optional token to cancel the operation.</param>
     /// <returns>A tuple containing the cipher algorithm, nonce, salt, and iterations extracted from the header.</returns>
     /// <exception cref="InvalidDataException">Thrown when the header is invalid or unsupported.</exception>
-    private async Task<(Cipher cipher, byte[] nonce, byte[] salt, int iterations)> ReadHeaderAsync(Stream input)
+    private async Task<(Cipher cipher, byte[] nonce, byte[] salt, int iterations)> ReadHeaderAsync(
+        Stream input,
+        IProgress<int>? progress = null,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        
         // Identifier
         var header = await input.ReadBytesAsync(2);
         if (header[0] != 0xec || header[1] != 0xde)
@@ -135,6 +153,9 @@ public class Pbkdf2DataEncryptionService
         // Iterations
         var iterations = await input.ReadIntAsync();
         
+        // Progress
+        progress?.Report(37);
+        
         return (cipher, nonce, salt, iterations);
     }
     
@@ -154,7 +175,7 @@ public class Pbkdf2DataEncryptionService
         Stream input,
         Stream output,
         string password,
-        IProgress<long>? progress = null,
+        IProgress<int>? progress = null,
         CancellationToken cancellationToken = default)
     {
         var pbkdf2Service = new Pbkdf2Service();
@@ -163,7 +184,7 @@ public class Pbkdf2DataEncryptionService
         var bcsParametersFactory = new BlockCipherParametersFactory();
         
         // Read header
-        var (cipher, nonce, salt, iterations) = await ReadHeaderAsync(input);
+        var (cipher, nonce, salt, iterations) = await ReadHeaderAsync(input, progress, cancellationToken);
         
         // Get block cipher service from cipher enum
         var bcs = CipherUtils.GetBlockCipherService(cipher, bcsFactory, bcsEngineFactory);

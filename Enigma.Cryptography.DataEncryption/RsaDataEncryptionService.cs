@@ -24,9 +24,17 @@ public class RsaDataEncryptionService
     /// <param name="cipherValue">The byte value representing the cipher algorithm used.</param>
     /// <param name="encKey">The encrypted symmetric key.</param>
     /// <param name="nonce">The initialization vector (nonce) for the symmetric encryption.</param>
+    /// <param name="cancellationToken">Optional token to monitor for cancellation requests.</param>
     /// <returns>A task representing the asynchronous write operation.</returns>
-    private async Task WriteHeaderAsync(Stream output, byte cipherValue, byte[] encKey, byte[] nonce)
+    private async Task WriteHeaderAsync(
+        Stream output,
+        byte cipherValue,
+        byte[] encKey,
+        byte[] nonce,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        
         // Identifier
         await output.WriteBytesAsync([0xec, 0xde]);
         
@@ -61,9 +69,11 @@ public class RsaDataEncryptionService
         Stream output,
         Cipher cipher,
         AsymmetricKeyParameter publicKey,
-        IProgress<long>? progress = null,
+        IProgress<int>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        
         var rsaService = new PublicKeyServiceFactory().CreateRsaService();
         var bcsFactory = new BlockCipherServiceFactory();
         var bcsEngineFactory = new BlockCipherEngineFactory();
@@ -83,7 +93,7 @@ public class RsaDataEncryptionService
         var encKey = rsaService.Encrypt(key, publicKey);
 
         // Write header
-        await WriteHeaderAsync(output, (byte)cipher, encKey, nonce);
+        await WriteHeaderAsync(output, (byte)cipher, encKey, nonce, cancellationToken);
         
         // Encrypt data
         await bcs.EncryptAsync(input, output, bcsParameters, progress, cancellationToken);
@@ -97,10 +107,17 @@ public class RsaDataEncryptionService
     /// the parameters needed for decryption.
     /// </summary>
     /// <param name="input">The stream containing the encrypted data.</param>
+    /// <param name="progress">Optional progress reporting mechanism.</param>
+    /// <param name="cancellationToken">Optional token to monitor for cancellation requests.</param>
     /// <returns>A tuple containing the cipher algorithm, encrypted key, and nonce extracted from the header.</returns>
     /// <exception cref="InvalidDataException">Thrown when the header format is invalid.</exception>
-    private async Task<(Cipher cipher, byte[] encKey, byte[] nonce)> ReadHeaderAsync(Stream input)
+    private async Task<(Cipher cipher, byte[] encKey, byte[] nonce)> ReadHeaderAsync(
+        Stream input,
+        IProgress<int>? progress = null,
+        CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        
         // Identifier
         var header = await input.ReadBytesAsync(2);
         if (header[0] != 0xec || header[1] != 0xde)
@@ -126,6 +143,9 @@ public class RsaDataEncryptionService
         // Encrypted key
         var encKey = await input.ReadLengthValueAsync();
         
+        // Progress
+        progress?.Report(21 + encKey.Length);
+        
         return (cipher, encKey, nonce);
     }
 
@@ -142,7 +162,7 @@ public class RsaDataEncryptionService
         Stream input,
         Stream output,
         AsymmetricKeyParameter privateKey,
-        IProgress<long>? progress = null,
+        IProgress<int>? progress = null,
         CancellationToken cancellationToken = default)
     {
         var rsaService = new PublicKeyServiceFactory().CreateRsaService();
@@ -151,7 +171,7 @@ public class RsaDataEncryptionService
         var bcsParametersFactory = new BlockCipherParametersFactory();
         
         // Read header
-        var (cipher, encKey, nonce) = await ReadHeaderAsync(input);
+        var (cipher, encKey, nonce) = await ReadHeaderAsync(input, progress, cancellationToken);
         
         // Get block cipher service from cipher enum
         var bcs = CipherUtils.GetBlockCipherService(cipher, bcsFactory, bcsEngineFactory);
