@@ -1,7 +1,7 @@
 ﻿using Enigma.Cryptography.DataEncryption;
-using Enigma.Extensions;
-using Enigma.PQC;
-using Enigma.PublicKey;
+using Enigma.Cryptography.Extensions;
+using Enigma.Cryptography.PQC;
+using Enigma.Cryptography.PublicKey;
 using System.IO;
 using System.Threading.Tasks;
 using System;
