@@ -1,7 +1,7 @@
-﻿using Enigma.BlockCiphers;
-using Enigma.Extensions;
-using Enigma.PublicKey;
-using Enigma.Utils;
+﻿using Enigma.Cryptography.BlockCiphers;
+using Enigma.Cryptography.Extensions;
+using Enigma.Cryptography.PublicKey;
+using Enigma.Cryptography.Utils;
 using Org.BouncyCastle.Crypto;
 using System.IO;
 using System.Threading.Tasks;

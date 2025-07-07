@@ -4,6 +4,17 @@ Enigma.Cryptography.DataEncryption is a .NET library based on `Enigma.Cryptograp
 
 It provides services for data encryption and decryption.
 
+## Ciphers
+
+The following ciphers are available for all the data encryption services :
+
+| Cipher identifier | Value |
+|-------------------|-------|
+| AES-256           | 0x01  |
+| Twofish-256       | 0x02  |
+| Serpent-256       | 0x03  |
+| Camellia-256      | 0x04  |
+
 ## Pbkdf2DataEncryptionService
 
 Encryption/decryption service with PBKDF2 algorithm.
@@ -31,7 +42,7 @@ Encryption/decryption service with PBKDF2 algorithm.
 | Identifier      | 2              | Fixed value `[0xec, 0xde]` that identifies encryption with this library |
 | Encryption type | 1              | Fixed value `0x01` that identifies encryption with PBKDF2               |
 | Version         | 1              | Current version: `0x01`                                                 |
-| Cipher          | 1              | Cipher identifier (see table below)                                     |
+| Cipher          | 1              | Cipher identifier                                                       |
 | Nonce           | 12             | Random nonce for encryption with GCM mode                               |
 | Salt            | 16             | Random salt for PBKDF2                                                  |
 | Iterations      | 4 (Int32)      | Number of iterations for PBKDF2                                         |
@@ -64,7 +75,7 @@ Data encryption service with Argon2id algorithm.
 | Identifier      | 2              | Fixed value `[0xec, 0xde]` that identifies encryption with this library |
 | Encryption type | 1              | Fixed value `0x02` that identifies encryption with Argon2               |
 | Version         | 1              | Current version: `0x01`                                                 |
-| Cipher          | 1              | Cipher identifier (see table below)                                     |
+| Cipher          | 1              | Cipher identifier                                                       |
 | Nonce           | 12             | Random nonce for encryption with GCM mode                               |
 | Salt            | 16             | Random salt for Argon2                                                  |
 | Iterations      | 4 (Int32)      | Number of iterations for Argon2                                         |
@@ -100,7 +111,7 @@ Data encryption service with RSA.
 | Identifier           | 2              | Fixed value `[0xec, 0xde]` that identifies encryption with this library |
 | Encryption type      | 1              | Fixed value `0x03` that identifies encryption with RSA                  |
 | Version              | 1              | Current version: `0x01`                                                 |
-| Cipher               | 1              | Cipher identifier (see table below)                                     |
+| Cipher               | 1              | Cipher identifier                                                       |
 | Nonce                | 12             | Random nonce for encryption with GCM mode                               |
 | Encrypted key length | 4 (Int32)      | RSA-encrypted random key length                                         |
 | Encrypted key        | (dynamic)      | RSA-encrypted random key                                                |
@@ -134,7 +145,7 @@ Data encryption service with ML-KEM.
 | Identifier           | 2              | Fixed value `[0xec, 0xde]` that identifies encryption with this library |
 | Encryption type      | 1              | Fixed value `0x04` that identifies encryption with ML-KEM               |
 | Version              | 1              | Current version: `0x01`                                                 |
-| Cipher               | 1              | Cipher identifier (see table below)                                     |
+| Cipher               | 1              | Cipher identifier                                                       |
 | Nonce                | 12             | Random nonce for encryption with GCM mode                               |
 | Encapsulation length | 4 (Int32)      | Encapsulation length                                                    |
 | Encapsulation        | (dynamic)      | Encapsulation                                                           |

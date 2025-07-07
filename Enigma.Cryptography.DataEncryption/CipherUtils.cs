@@ -1,4 +1,4 @@
-﻿using Enigma.BlockCiphers;
+﻿using Enigma.Cryptography.BlockCiphers;
 using System;
 
 namespace Enigma.Cryptography.DataEncryption;

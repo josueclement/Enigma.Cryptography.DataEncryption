@@ -1,7 +1,7 @@
-﻿using Enigma.BlockCiphers;
-using Enigma.Extensions;
-using Enigma.KDF;
-using Enigma.Utils;
+﻿using Enigma.Cryptography.BlockCiphers;
+using Enigma.Cryptography.Extensions;
+using Enigma.Cryptography.KDF;
+using Enigma.Cryptography.Utils;
 using System.IO;
 using System.Threading.Tasks;
 using System.Threading;
