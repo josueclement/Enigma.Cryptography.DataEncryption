@@ -9,7 +9,7 @@
         <Copyright>Copyright © 2025 Josué Clément</Copyright>
         <PackageId>Enigma.Cryptography.DataEncryption</PackageId>
         <Title>Enigma cryptography data encryption library</Title>
-        <Version>1.0.3</Version>
+        <Version>1.0.4</Version>
         <Description>.NET data encryption library using Enigma.Cryptography</Description>
         <PackageTags>enigma cryptography data encryption</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
@@ -29,7 +29,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="Enigma.Cryptography" Version="4.0.0" />
+      <PackageReference Include="Enigma.Cryptography" Version="4.0.1" />
     </ItemGroup>
 
 </Project>
