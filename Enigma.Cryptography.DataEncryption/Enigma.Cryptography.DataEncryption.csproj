@@ -2,16 +2,16 @@
 
     <PropertyGroup>
         <OutputType>Library</OutputType>
-        <TargetFrameworks>netstandard2.0;netstandard2.1;net6.0;net7.0;net8.0;net9.0;net472</TargetFrameworks>
+        <TargetFrameworks>netstandard2.0;net10.0</TargetFrameworks>
         <Nullable>enable</Nullable>
         <LangVersion>13</LangVersion>
         <Authors>Josué Clément</Authors>
-        <Copyright>Copyright © 2025 Josué Clément</Copyright>
+        <Copyright>Copyright © 2026 Josué Clément</Copyright>
         <PackageId>Enigma.Cryptography.DataEncryption</PackageId>
-        <Title>Enigma cryptography data encryption library</Title>
-        <Version>1.0.4</Version>
-        <Description>.NET data encryption library using Enigma.Cryptography</Description>
-        <PackageTags>enigma cryptography data encryption</PackageTags>
+        <Title>Enigma.Cryptography.DataEncryption</Title>
+        <Version>1.1.0</Version>
+        <Description>Stream-based encryption and decryption services for .NET, built on Enigma.Cryptography. Supports password-based (PBKDF2, Argon2id), RSA hybrid, and post-quantum ML-KEM-1024 key exchange, combined with AES-256, Twofish-256, Serpent-256, and Camellia-256 in GCM mode.</Description>
+        <PackageTags>encryption decryption cryptography aes gcm rsa ml-kem post-quantum pbkdf2 argon2 stream dotnet</PackageTags>
         <PackageReadmeFile>README.md</PackageReadmeFile>
         <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
         <PackageProjectUrl>https://github.com/josueclement/Enigma.Cryptography.DataEncryption</PackageProjectUrl>
