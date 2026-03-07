@@ -18,6 +18,8 @@ static class Program
             await TestArgon2();
             await TestRsa();
             await TestMLKem();
+            await TestRsaMatchesFingerprint();
+            await TestMLKemMatchesFingerprint();
         }
         catch (Exception ex)
         {
@@ -101,12 +103,12 @@ static class Program
         using var outputDec = new MemoryStream();
         
         await service.DecryptAsync(inputDec, outputDec, keyPair.Private);
-        
-        var decData = outputDec.ToArray(); 
-        
+
+        var decData = outputDec.ToArray();
+
         Console.WriteLine(CheckValidity(data, decData) ? "OK" : "FAILED" );
     }
-    
+
     // ReSharper disable once InconsistentNaming
     static async Task TestMLKem()
     {
@@ -115,22 +117,87 @@ static class Program
 
         var mlKem = new MLKemServiceFactory().CreateKem1024();
         var keyPair = mlKem.GenerateKeyPair();
-        
+
         using var inputEnc = new MemoryStream(data);
         using var outputEnc = new MemoryStream();
-        
+
         var service = new MLKemDataEncryptionService();
         await service.EncryptAsync(inputEnc, outputEnc, Cipher.Aes256Gcm, keyPair.Public);
-        
+
         var encData = outputEnc.ToArray();
-        
+
         using var inputDec = new MemoryStream(encData);
         using var outputDec = new MemoryStream();
-        
+
         await service.DecryptAsync(inputDec, outputDec, keyPair.Private);
-        
+
         var decData = outputDec.ToArray();
-        
+
         Console.WriteLine(CheckValidity(data, decData) ? "OK" : "FAILED" );
+    }
+
+    static async Task TestRsaMatchesFingerprint()
+    {
+        Console.Write("RsaDataEncryptionService.MatchesFingerprint: ");
+        var data = "This is a secret message".GetUtf8Bytes();
+
+        var rsa = new PublicKeyServiceFactory().CreateRsaService();
+        var keyPair = rsa.GenerateKeyPair(4096);
+        var otherKeyPair = rsa.GenerateKeyPair(4096);
+
+        using var inputEnc = new MemoryStream(data);
+        using var outputEnc = new MemoryStream();
+
+        var service = new RsaDataEncryptionService();
+        await service.EncryptAsync(inputEnc, outputEnc, Cipher.Aes256Gcm, keyPair.Public);
+
+        var encData = outputEnc.ToArray();
+
+        using var inputDec = new MemoryStream(encData);
+        using var outputDec = new MemoryStream();
+
+        await service.DecryptAsync(inputDec, outputDec, keyPair.Private);
+
+        using var inputDec2 = new MemoryStream(encData);
+        using var outputDec2 = new MemoryStream();
+
+        var threw = false;
+        try { await service.DecryptAsync(inputDec2, outputDec2, otherKeyPair.Private); }
+        catch (InvalidOperationException) { threw = true; }
+
+        Console.WriteLine(threw ? "OK" : "FAILED");
+    }
+
+    // ReSharper disable once InconsistentNaming
+    static async Task TestMLKemMatchesFingerprint()
+    {
+        Console.Write("MLKemDataEncryptionService.MatchesFingerprint: ");
+        var data = "This is a secret message".GetUtf8Bytes();
+
+        var mlKem = new MLKemServiceFactory().CreateKem1024();
+        var keyPair = mlKem.GenerateKeyPair();
+        var otherKeyPair = mlKem.GenerateKeyPair();
+
+        using var inputEnc = new MemoryStream(data);
+        using var outputEnc = new MemoryStream();
+
+        var service = new MLKemDataEncryptionService();
+        await service.EncryptAsync(inputEnc, outputEnc, Cipher.Aes256Gcm, keyPair.Public);
+
+        var encData = outputEnc.ToArray();
+
+        using var inputDec = new MemoryStream(encData);
+        using var outputDec = new MemoryStream();
+
+        await service.DecryptAsync(inputDec, outputDec, keyPair.Private);
+
+        using var inputDec2 = new MemoryStream(encData);
+        using var outputDec2 = new MemoryStream();
+
+        var threw = false;
+        try { await service.DecryptAsync(inputDec2, outputDec2, otherKeyPair.Private); }
+        catch (InvalidOperationException) { threw = true; }
+
+        Console.WriteLine(threw ? "OK" : "FAILED");
     }
 }

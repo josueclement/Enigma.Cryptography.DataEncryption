@@ -91,6 +91,7 @@ Data encryption service with RSA.
 
 - A block cipher service is initialized with the specified cipher in GCM mode.
 - A random 32-bytes key and a random 12-bytes nonce are generated.
+- A 16-byte key fingerprint is computed as the first 16 bytes of the SHA-256 hash of the public key's SubjectPublicKeyInfo DER encoding.
 - The random key is encrypted with the public RSA key.
 - The header is written to the output stream.
 - The input stream is encrypted into the output stream with the key and nonce.
@@ -103,6 +104,7 @@ Data encryption service with RSA.
 - A block cipher service is initialized with the cipher in GCM mode.
 - The input stream is decrypted into the output stream with the key and nonce.
 - The decrypted key is cleared from memory.
+- The key fingerprint read from the header is returned to the caller.
 
 ### Data structure
 
@@ -110,8 +112,9 @@ Data encryption service with RSA.
 |----------------------|----------------|-------------------------------------------------------------------------|
 | Identifier           | 2              | Fixed value `[0xec, 0xde]` that identifies encryption with this library |
 | Encryption type      | 1              | Fixed value `0x03` that identifies encryption with RSA                  |
-| Version              | 1              | Current version: `0x01`                                                 |
+| Version              | 1              | Current version: `0x02`                                                 |
 | Cipher               | 1              | Cipher identifier                                                       |
+| Key fingerprint      | 16             | First 16 bytes of SHA-256 of the RSA public key's SPKI DER encoding     |
 | Nonce                | 12             | Random nonce for encryption with GCM mode                               |
 | Encrypted key length | 4 (Int32)      | RSA-encrypted random key length                                         |
 | Encrypted key        | (dynamic)      | RSA-encrypted random key                                                |
@@ -125,7 +128,8 @@ Data encryption service with ML-KEM.
 
 - A block cipher service is initialized with the specified cipher in GCM mode.
 - A random 12-bytes nonce is generated.
-- A 32-bytes key is generated from the ML-KEM public key.
+- A 16-byte key fingerprint is computed as the first 16 bytes of the SHA-256 hash of the public key's encoded bytes.
+- A 32-bytes key is encapsulated from the ML-KEM public key.
 - The header is written to the output stream.
 - The input stream is encrypted into the output stream with the key and nonce.
 - The key is cleared from memory.
@@ -137,6 +141,7 @@ Data encryption service with ML-KEM.
 - A block cipher service is initialized with the cipher in GCM mode.
 - The input stream is decrypted into the output stream with the key and nonce.
 - The decrypted key is cleared from memory.
+- The key fingerprint read from the header is returned to the caller.
 
 ### Data structure
 
@@ -144,8 +149,9 @@ Data encryption service with ML-KEM.
 |----------------------|----------------|-------------------------------------------------------------------------|
 | Identifier           | 2              | Fixed value `[0xec, 0xde]` that identifies encryption with this library |
 | Encryption type      | 1              | Fixed value `0x04` that identifies encryption with ML-KEM               |
-| Version              | 1              | Current version: `0x01`                                                 |
+| Version              | 1              | Current version: `0x02`                                                 |
 | Cipher               | 1              | Cipher identifier                                                       |
+| Key fingerprint      | 16             | First 16 bytes of SHA-256 of the ML-KEM public key's encoded bytes       |
 | Nonce                | 12             | Random nonce for encryption with GCM mode                               |
 | Encapsulation length | 4 (Int32)      | Encapsulation length                                                    |
 | Encapsulation        | (dynamic)      | Encapsulation                                                           |
