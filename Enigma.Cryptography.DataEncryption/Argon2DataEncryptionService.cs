@@ -1,4 +1,4 @@
-﻿using Enigma.Cryptography.BlockCiphers;
+using Enigma.Cryptography.BlockCiphers;
 using Enigma.Cryptography.Extensions;
 using Enigma.Cryptography.KDF;
 using Enigma.Cryptography.Utils;
@@ -40,35 +40,35 @@ public class Argon2DataEncryptionService
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        
+
         // Identifier
-        await output.WriteBytesAsync([0xec, 0xde]);
-        
+        await output.WriteBytesAsync([0xec, 0xde]).ConfigureAwait(false);
+
         // Type
-        await output.WriteByteAsync((byte)EncryptionType.Argon2);
-        
+        await output.WriteByteAsync((byte)EncryptionType.Argon2).ConfigureAwait(false);
+
         // Version
-        await output.WriteByteAsync(0x01);
-        
+        await output.WriteByteAsync(0x01).ConfigureAwait(false);
+
         // Cipher
-        await output.WriteByteAsync(cipherValue);
-        
+        await output.WriteByteAsync(cipherValue).ConfigureAwait(false);
+
         // Nonce
-        await output.WriteBytesAsync(nonce);
-        
+        await output.WriteBytesAsync(nonce).ConfigureAwait(false);
+
         // Salt
-        await output.WriteBytesAsync(salt);
-        
+        await output.WriteBytesAsync(salt).ConfigureAwait(false);
+
         // Iterations
-        await output.WriteIntAsync(iterations);
-        
+        await output.WriteIntAsync(iterations).ConfigureAwait(false);
+
         // Parallelism
-        await output.WriteIntAsync(parallelism);
-        
+        await output.WriteIntAsync(parallelism).ConfigureAwait(false);
+
         // Memory pow of two
-        await output.WriteIntAsync(memoryPowOfTwo);
+        await output.WriteIntAsync(memoryPowOfTwo).ConfigureAwait(false);
     }
-    
+
     /// <summary>
     /// Encrypts data from the input stream and writes the encrypted result to the output stream.
     /// Uses Argon2 for key derivation with the provided password and encryption parameters.
@@ -95,31 +95,31 @@ public class Argon2DataEncryptionService
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        
+
         var argon2Service = new Argon2Service();
         var bcsFactory = new BlockCipherServiceFactory();
         var bcsEngineFactory = new BlockCipherEngineFactory();
         var bcsParametersFactory = new BlockCipherParametersFactory();
-        
+
         // Get block cipher service from cipher enum
         var bcs = CipherUtils.GetBlockCipherService(cipher, bcsFactory, bcsEngineFactory);
 
         // Generate random salt
         var salt = RandomUtils.GenerateRandomBytes(16);
         var nonce = RandomUtils.GenerateRandomBytes(12);
-        
+
         // Generate key from password and salt
         var key = argon2Service.GenerateKey(32, password, salt, iterations, parallelism, memoryPowOfTwo);
-        
+
         // Create GCM parameters for block cipher service
         var bcsParameters = bcsParametersFactory.CreateGcmParameters(key, nonce);
-        
+
         // Write header
-        await WriteHeaderAsync(output, (byte)cipher, nonce, salt, iterations, parallelism, memoryPowOfTwo, cancellationToken);
-        
+        await WriteHeaderAsync(output, (byte)cipher, nonce, salt, iterations, parallelism, memoryPowOfTwo, cancellationToken).ConfigureAwait(false);
+
         // Encrypt data
-        await bcs.EncryptAsync(input, output, bcsParameters, progress, cancellationToken);
-        
+        await bcs.EncryptAsync(input, output, bcsParameters, progress, cancellationToken).ConfigureAwait(false);
+
         // Clear key from memory
         Array.Clear(key, 0, key.Length);
     }
@@ -140,44 +140,44 @@ public class Argon2DataEncryptionService
             CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        
+
         // Identifier
-        var header = await input.ReadBytesAsync(2);
+        var header = await input.ReadBytesAsync(2).ConfigureAwait(false);
         if (header[0] != 0xec || header[1] != 0xde)
             throw new InvalidDataException("Invalid header");
-        
+
         // Type
-        var typeValue = await input.ReadByteAsync();
+        var typeValue = await input.ReadByteAsync().ConfigureAwait(false);
         if ((EncryptionType)typeValue != EncryptionType.Argon2)
             throw new InvalidDataException("Invalid encryption type");
-        
+
         // Version
-        var version = await input.ReadByteAsync();
+        var version = await input.ReadByteAsync().ConfigureAwait(false);
         if (version != 0x01)
             throw new InvalidDataException("Invalid version");
-        
+
         // Cipher
-        var cipherValue = await input.ReadByteAsync();
-        var cipher = (Cipher)cipherValue; 
-        
+        var cipherValue = await input.ReadByteAsync().ConfigureAwait(false);
+        var cipher = (Cipher)cipherValue;
+
         // Nonce
-        var nonce = await input.ReadBytesAsync(12);
-        
+        var nonce = await input.ReadBytesAsync(12).ConfigureAwait(false);
+
         // Salt
-        var salt = await input.ReadBytesAsync(16);
-        
+        var salt = await input.ReadBytesAsync(16).ConfigureAwait(false);
+
         // Iterations
-        var iterations = await input.ReadIntAsync();
-        
+        var iterations = await input.ReadIntAsync().ConfigureAwait(false);
+
         // Parallelism
-        var parallelism = await input.ReadIntAsync();
-        
+        var parallelism = await input.ReadIntAsync().ConfigureAwait(false);
+
         // Memory pow of two
-        var memoryPowOfTwo = await input.ReadIntAsync();
-        
+        var memoryPowOfTwo = await input.ReadIntAsync().ConfigureAwait(false);
+
         // Progress
         progress?.Report(45);
-        
+
         return (cipher, nonce, salt, iterations, parallelism, memoryPowOfTwo);
     }
 
@@ -200,27 +200,27 @@ public class Argon2DataEncryptionService
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        
+
         var argon2Service = new Argon2Service();
         var bcsFactory = new BlockCipherServiceFactory();
         var bcsEngineFactory = new BlockCipherEngineFactory();
         var bcsParametersFactory = new BlockCipherParametersFactory();
-        
+
         // Read header and extract encryption parameters
-        var (cipher, nonce, salt, iterations, parallelism, memoryPowOfTwo) = await ReadHeaderAsync(input, progress, cancellationToken);
-        
+        var (cipher, nonce, salt, iterations, parallelism, memoryPowOfTwo) = await ReadHeaderAsync(input, progress, cancellationToken).ConfigureAwait(false);
+
         // Get block cipher service from cipher enum
         var bcs = CipherUtils.GetBlockCipherService(cipher, bcsFactory, bcsEngineFactory);
-        
+
         // Generate key from password and salt
         var key = argon2Service.GenerateKey(32, password, salt, iterations, parallelism, memoryPowOfTwo);
-        
+
         // Create GCM parameters for block cipher service
         var bcsParameters = bcsParametersFactory.CreateGcmParameters(key, nonce);
-        
+
         // Decrypt data
-        await bcs.DecryptAsync(input, output, bcsParameters, progress, cancellationToken);
-        
+        await bcs.DecryptAsync(input, output, bcsParameters, progress, cancellationToken).ConfigureAwait(false);
+
         // Clear key from memory
         Array.Clear(key, 0, key.Length);
     }

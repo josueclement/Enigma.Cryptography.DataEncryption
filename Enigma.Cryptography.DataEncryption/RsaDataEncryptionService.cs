@@ -1,4 +1,4 @@
-﻿using Enigma.Cryptography.BlockCiphers;
+using Enigma.Cryptography.BlockCiphers;
 using Enigma.Cryptography.Extensions;
 using Enigma.Cryptography.PublicKey;
 using Enigma.Cryptography.Utils;
@@ -34,26 +34,26 @@ public class RsaDataEncryptionService
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        
+
         // Identifier
-        await output.WriteBytesAsync([0xec, 0xde]);
-        
+        await output.WriteBytesAsync([0xec, 0xde]).ConfigureAwait(false);
+
         // Type
-        await output.WriteByteAsync((byte)EncryptionType.Rsa);
-        
+        await output.WriteByteAsync((byte)EncryptionType.Rsa).ConfigureAwait(false);
+
         // Version
-        await output.WriteByteAsync(0x01);
-        
+        await output.WriteByteAsync(0x01).ConfigureAwait(false);
+
         // Cipher
-        await output.WriteByteAsync(cipherValue);
-        
+        await output.WriteByteAsync(cipherValue).ConfigureAwait(false);
+
         // Nonce
-        await output.WriteBytesAsync(nonce);
-        
+        await output.WriteBytesAsync(nonce).ConfigureAwait(false);
+
         // Encrypted key
-        await output.WriteLengthValueAsync(encKey);
+        await output.WriteLengthValueAsync(encKey).ConfigureAwait(false);
     }
-    
+
     /// <summary>
     /// Encrypts data from the input stream and writes the encrypted data to the output stream using RSA encryption.
     /// </summary>
@@ -73,7 +73,7 @@ public class RsaDataEncryptionService
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        
+
         var rsaService = new PublicKeyServiceFactory().CreateRsaService();
         var bcsFactory = new BlockCipherServiceFactory();
         var bcsEngineFactory = new BlockCipherEngineFactory();
@@ -81,23 +81,23 @@ public class RsaDataEncryptionService
 
         // Get block cipher service from cipher enum
         var bcs = CipherUtils.GetBlockCipherService(cipher, bcsFactory, bcsEngineFactory);
-        
+
         // Generate random key and nonce
         var key = RandomUtils.GenerateRandomBytes(32);
         var nonce = RandomUtils.GenerateRandomBytes(12);
-        
+
         // Create GCM parameters for block cipher service
         var bcsParameters = bcsParametersFactory.CreateGcmParameters(key, nonce);
-        
+
         // Encrypt key with public key
         var encKey = rsaService.Encrypt(key, publicKey);
 
         // Write header
-        await WriteHeaderAsync(output, (byte)cipher, encKey, nonce, cancellationToken);
-        
+        await WriteHeaderAsync(output, (byte)cipher, encKey, nonce, cancellationToken).ConfigureAwait(false);
+
         // Encrypt data
-        await bcs.EncryptAsync(input, output, bcsParameters, progress, cancellationToken);
-        
+        await bcs.EncryptAsync(input, output, bcsParameters, progress, cancellationToken).ConfigureAwait(false);
+
         // Clear key from memory
         Array.Clear(key, 0, key.Length);
     }
@@ -117,35 +117,35 @@ public class RsaDataEncryptionService
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        
+
         // Identifier
-        var header = await input.ReadBytesAsync(2);
+        var header = await input.ReadBytesAsync(2).ConfigureAwait(false);
         if (header[0] != 0xec || header[1] != 0xde)
             throw new InvalidDataException("Invalid header");
-        
+
         // Type
-        var typeValue = await input.ReadByteAsync();
+        var typeValue = await input.ReadByteAsync().ConfigureAwait(false);
         if ((EncryptionType)typeValue != EncryptionType.Rsa)
             throw new InvalidDataException("Invalid encryption type");
-        
+
         // Version
-        var version = await input.ReadByteAsync();
+        var version = await input.ReadByteAsync().ConfigureAwait(false);
         if (version != 0x01)
             throw new InvalidDataException("Invalid version");
-        
+
         // Cipher
-        var cipherValue = await input.ReadByteAsync();
-        var cipher = (Cipher)cipherValue; 
-        
+        var cipherValue = await input.ReadByteAsync().ConfigureAwait(false);
+        var cipher = (Cipher)cipherValue;
+
         // Nonce
-        var nonce = await input.ReadBytesAsync(12);
-        
+        var nonce = await input.ReadBytesAsync(12).ConfigureAwait(false);
+
         // Encrypted key
-        var encKey = await input.ReadLengthValueAsync();
-        
+        var encKey = await input.ReadLengthValueAsync().ConfigureAwait(false);
+
         // Progress
         progress?.Report(21 + encKey.Length);
-        
+
         return (cipher, encKey, nonce);
     }
 
@@ -166,27 +166,27 @@ public class RsaDataEncryptionService
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        
+
         var rsaService = new PublicKeyServiceFactory().CreateRsaService();
         var bcsFactory = new BlockCipherServiceFactory();
         var bcsEngineFactory = new BlockCipherEngineFactory();
         var bcsParametersFactory = new BlockCipherParametersFactory();
-        
+
         // Read header
-        var (cipher, encKey, nonce) = await ReadHeaderAsync(input, progress, cancellationToken);
-        
+        var (cipher, encKey, nonce) = await ReadHeaderAsync(input, progress, cancellationToken).ConfigureAwait(false);
+
         // Get block cipher service from cipher enum
         var bcs = CipherUtils.GetBlockCipherService(cipher, bcsFactory, bcsEngineFactory);
 
         // Decrypt key with private key
         var key = rsaService.Decrypt(encKey, privateKey);
-        
+
         // Create GCM parameters for block cipher service
-        var bcsParameters = bcsParametersFactory.CreateGcmParameters(key, nonce); 
-        
+        var bcsParameters = bcsParametersFactory.CreateGcmParameters(key, nonce);
+
         // Decrypt data
-        await bcs.DecryptAsync(input, output, bcsParameters, progress, cancellationToken);
-        
+        await bcs.DecryptAsync(input, output, bcsParameters, progress, cancellationToken).ConfigureAwait(false);
+
         // Clear key from memory
         Array.Clear(key, 0, key.Length);
     }

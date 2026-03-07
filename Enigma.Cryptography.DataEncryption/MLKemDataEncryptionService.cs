@@ -1,4 +1,4 @@
-﻿using Enigma.Cryptography.BlockCiphers;
+using Enigma.Cryptography.BlockCiphers;
 using Enigma.Cryptography.Extensions;
 using Enigma.Cryptography.PQC;
 using Enigma.Cryptography.Utils;
@@ -36,26 +36,26 @@ public class MLKemDataEncryptionService
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        
+
         // Identifier
-        await output.WriteBytesAsync([0xec, 0xde]);
-        
+        await output.WriteBytesAsync([0xec, 0xde]).ConfigureAwait(false);
+
         // Type
-        await output.WriteByteAsync((byte)EncryptionType.MLKem);
-        
+        await output.WriteByteAsync((byte)EncryptionType.MLKem).ConfigureAwait(false);
+
         // Version
-        await output.WriteByteAsync(0x01);
-        
+        await output.WriteByteAsync(0x01).ConfigureAwait(false);
+
         // Cipher
-        await output.WriteByteAsync(cipherValue);
-        
+        await output.WriteByteAsync(cipherValue).ConfigureAwait(false);
+
         // Nonce
-        await output.WriteBytesAsync(nonce);
-        
+        await output.WriteBytesAsync(nonce).ConfigureAwait(false);
+
         // Encapsulation
-        await output.WriteLengthValueAsync(encapsulation);
+        await output.WriteLengthValueAsync(encapsulation).ConfigureAwait(false);
     }
-    
+
     /// <summary>
     /// Encrypts data from the input stream to the output stream using ML-KEM key encapsulation
     /// combined with a symmetric block cipher.
@@ -76,7 +76,7 @@ public class MLKemDataEncryptionService
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        
+
         var mlKemService = new MLKemServiceFactory().CreateKem1024();
         var bcsFactory = new BlockCipherServiceFactory();
         var bcsEngineFactory = new BlockCipherEngineFactory();
@@ -84,26 +84,26 @@ public class MLKemDataEncryptionService
 
         // Get block cipher service from cipher enum
         var bcs = CipherUtils.GetBlockCipherService(cipher, bcsFactory, bcsEngineFactory);
-        
+
         // Generate random nonce
         var nonce = RandomUtils.GenerateRandomBytes(12);
 
         // Encapsulate secret key using public key
         var (encapsulation, secret) = mlKemService.Encapsulate(publicKey);
-        
+
         // Create GCM parameters for block cipher service
         var bcsParameters = bcsParametersFactory.CreateGcmParameters(secret, nonce);
-        
+
         // Write header
-        await WriteHeaderAsync(output, (byte)cipher, encapsulation, nonce, cancellationToken);
-        
+        await WriteHeaderAsync(output, (byte)cipher, encapsulation, nonce, cancellationToken).ConfigureAwait(false);
+
         // Encrypt data
-        await bcs.EncryptAsync(input, output, bcsParameters, progress, cancellationToken);
-        
+        await bcs.EncryptAsync(input, output, bcsParameters, progress, cancellationToken).ConfigureAwait(false);
+
         // Clear key from memory
         Array.Clear(secret, 0, secret.Length);
     }
-    
+
     /// <summary>
     /// Reads and parses the encryption header from the input stream to extract
     /// the parameters needed for decryption.
@@ -119,38 +119,38 @@ public class MLKemDataEncryptionService
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        
+
         // Identifier
-        var header = await input.ReadBytesAsync(2);
+        var header = await input.ReadBytesAsync(2).ConfigureAwait(false);
         if (header[0] != 0xec || header[1] != 0xde)
             throw new InvalidDataException("Invalid header");
-        
+
         // Type
-        var typeValue = await input.ReadByteAsync();
+        var typeValue = await input.ReadByteAsync().ConfigureAwait(false);
         if ((EncryptionType)typeValue != EncryptionType.MLKem)
             throw new InvalidDataException("Invalid encryption type");
-        
+
         // Version
-        var version = await input.ReadByteAsync();
+        var version = await input.ReadByteAsync().ConfigureAwait(false);
         if (version != 0x01)
             throw new InvalidDataException("Invalid version");
-        
+
         // Cipher
-        var cipherValue = await input.ReadByteAsync();
-        var cipher = (Cipher)cipherValue; 
-        
+        var cipherValue = await input.ReadByteAsync().ConfigureAwait(false);
+        var cipher = (Cipher)cipherValue;
+
         // Nonce
-        var nonce = await input.ReadBytesAsync(12);
-        
+        var nonce = await input.ReadBytesAsync(12).ConfigureAwait(false);
+
         // Encapsulation
-        var encapsulation = await input.ReadLengthValueAsync();
-        
+        var encapsulation = await input.ReadLengthValueAsync().ConfigureAwait(false);
+
         // Progress
         progress?.Report(21 + encapsulation.Length);
-        
+
         return (cipher, encapsulation, nonce);
     }
-    
+
     /// <summary>
     /// Decrypts data from the input stream to the output stream using ML-KEM and a symmetric block cipher.
     /// </summary>
@@ -168,27 +168,27 @@ public class MLKemDataEncryptionService
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        
+
         var mlKemService = new MLKemServiceFactory().CreateKem1024();
         var bcsFactory = new BlockCipherServiceFactory();
         var bcsEngineFactory = new BlockCipherEngineFactory();
         var bcsParametersFactory = new BlockCipherParametersFactory();
 
         // Read header
-        var (cipher, encapsulation, nonce) = await ReadHeaderAsync(input, progress, cancellationToken);
-        
+        var (cipher, encapsulation, nonce) = await ReadHeaderAsync(input, progress, cancellationToken).ConfigureAwait(false);
+
         // Get block cipher service from cipher enum
         var bcs = CipherUtils.GetBlockCipherService(cipher, bcsFactory, bcsEngineFactory);
-        
+
         // Decapsulate secret key using private key
         var secret = mlKemService.Decapsulate(encapsulation, privateKey);
-        
+
         // Create GCM parameters for block cipher service
         var bcsParameters = bcsParametersFactory.CreateGcmParameters(secret, nonce);
-        
+
         // Decrypt data
-        await bcs.DecryptAsync(input, output, bcsParameters, progress, cancellationToken);
-        
+        await bcs.DecryptAsync(input, output, bcsParameters, progress, cancellationToken).ConfigureAwait(false);
+
         // Clear key from memory
         Array.Clear(secret, 0, secret.Length);
     }
