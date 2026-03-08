@@ -3,6 +3,7 @@ using Enigma.Cryptography.PublicKey;
 using System;
 using System.IO;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -12,56 +13,59 @@ public class RsaDataEncryptionServiceTests
 {
     private static readonly byte[] Data = Encoding.UTF8.GetBytes("This is a secret message");
 
-    private static async Task<byte[]> Encrypt(Cipher cipher)
+    private static async Task<byte[]> Encrypt(Cipher cipher, CancellationToken ct)
     {
         var rsa = new PublicKeyServiceFactory().CreateRsaService();
         var keyPair = rsa.GenerateKeyPair(4096);
         var service = new RsaDataEncryptionService();
         using var input = new MemoryStream(Data);
         using var output = new MemoryStream();
-        await service.EncryptAsync(input, output, cipher, keyPair.Public);
+        await service.EncryptAsync(input, output, cipher, keyPair.Public, cancellationToken: ct);
         return output.ToArray();
     }
 
     [Fact]
     public async Task RoundTrip_Aes256Gcm()
     {
+        var ct = TestContext.Current.CancellationToken;
         var rsa = new PublicKeyServiceFactory().CreateRsaService();
         var keyPair = rsa.GenerateKeyPair(4096);
 
         var service = new RsaDataEncryptionService();
         using var input = new MemoryStream(Data);
         using var output = new MemoryStream();
-        await service.EncryptAsync(input, output, Cipher.Aes256Gcm, keyPair.Public);
+        await service.EncryptAsync(input, output, Cipher.Aes256Gcm, keyPair.Public, cancellationToken: ct);
         var encData = output.ToArray();
 
         using var inputDec = new MemoryStream(encData);
         using var outputDec = new MemoryStream();
-        await service.DecryptAsync(inputDec, outputDec, keyPair.Private);
+        await service.DecryptAsync(inputDec, outputDec, keyPair.Private, cancellationToken: ct);
         Assert.Equal(Data, outputDec.ToArray());
     }
 
     [Fact]
     public async Task RoundTrip_Twofish256Gcm()
     {
+        var ct = TestContext.Current.CancellationToken;
         var rsa = new PublicKeyServiceFactory().CreateRsaService();
         var keyPair = rsa.GenerateKeyPair(4096);
 
         var service = new RsaDataEncryptionService();
         using var input = new MemoryStream(Data);
         using var output = new MemoryStream();
-        await service.EncryptAsync(input, output, Cipher.Twofish256Gcm, keyPair.Public);
+        await service.EncryptAsync(input, output, Cipher.Twofish256Gcm, keyPair.Public, cancellationToken: ct);
         var encData = output.ToArray();
 
         using var inputDec = new MemoryStream(encData);
         using var outputDec = new MemoryStream();
-        await service.DecryptAsync(inputDec, outputDec, keyPair.Private);
+        await service.DecryptAsync(inputDec, outputDec, keyPair.Private, cancellationToken: ct);
         Assert.Equal(Data, outputDec.ToArray());
     }
 
     [Fact]
     public async Task WrongKey_ThrowsInvalidOperationException()
     {
+        var ct = TestContext.Current.CancellationToken;
         var rsa = new PublicKeyServiceFactory().CreateRsaService();
         var keyPair = rsa.GenerateKeyPair(4096);
         var otherKeyPair = rsa.GenerateKeyPair(4096);
@@ -69,25 +73,26 @@ public class RsaDataEncryptionServiceTests
         var service = new RsaDataEncryptionService();
         using var input = new MemoryStream(Data);
         using var output = new MemoryStream();
-        await service.EncryptAsync(input, output, Cipher.Aes256Gcm, keyPair.Public);
+        await service.EncryptAsync(input, output, Cipher.Aes256Gcm, keyPair.Public, cancellationToken: ct);
         var encData = output.ToArray();
 
         using var inputDec = new MemoryStream(encData);
         using var outputDec = new MemoryStream();
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            service.DecryptAsync(inputDec, outputDec, otherKeyPair.Private));
+            service.DecryptAsync(inputDec, outputDec, otherKeyPair.Private, cancellationToken: ct));
     }
 
     [Fact]
     public async Task ComputeKeyFingerprint_Returns16Bytes()
     {
+        var ct = TestContext.Current.CancellationToken;
         var rsa = new PublicKeyServiceFactory().CreateRsaService();
         var keyPair = rsa.GenerateKeyPair(4096);
 
         var service = new RsaDataEncryptionService();
         using var input = new MemoryStream([]);
         using var output = new MemoryStream();
-        await service.EncryptAsync(input, output, Cipher.Aes256Gcm, keyPair.Public);
+        await service.EncryptAsync(input, output, Cipher.Aes256Gcm, keyPair.Public, cancellationToken: ct);
         var encData = output.ToArray();
 
         // Header layout: [0xec, 0xde, type, version, cipher] = 5 bytes, then 16-byte fingerprint

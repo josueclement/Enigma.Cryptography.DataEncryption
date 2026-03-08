@@ -17,8 +17,6 @@
         <PackageProjectUrl>https://github.com/josueclement/Enigma.Cryptography.DataEncryption</PackageProjectUrl>
         <RepositoryUrl>https://github.com/josueclement/Enigma.Cryptography.DataEncryption</RepositoryUrl>
         <RepositoryType>git</RepositoryType>
-        <IncludeSymbols>True</IncludeSymbols>
-        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
         <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
         <GenerateDocumentationFile>True</GenerateDocumentationFile>
     </PropertyGroup>
