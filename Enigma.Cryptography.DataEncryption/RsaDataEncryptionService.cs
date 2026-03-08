@@ -1,9 +1,12 @@
-﻿using Enigma.Cryptography.BlockCiphers;
+using Enigma.Cryptography.BlockCiphers;
 using Enigma.Cryptography.Extensions;
 using Enigma.Cryptography.PublicKey;
 using Enigma.Cryptography.Utils;
 using Org.BouncyCastle.Crypto;
+using Org.BouncyCastle.Crypto.Parameters;
+using Org.BouncyCastle.X509;
 using System.IO;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using System.Threading;
 using System;
@@ -17,43 +20,82 @@ namespace Enigma.Cryptography.DataEncryption;
 public class RsaDataEncryptionService
 {
     /// <summary>
+    /// Computes a 16-byte key fingerprint as the first 16 bytes of the SHA-256 hash
+    /// of the public key's SubjectPublicKeyInfo DER encoding.
+    /// </summary>
+    private static byte[] ComputeKeyFingerprint(AsymmetricKeyParameter publicKey)
+    {
+        var spki = SubjectPublicKeyInfoFactory.CreateSubjectPublicKeyInfo(publicKey);
+        var der = spki.GetDerEncoded();
+        using var sha256 = SHA256.Create();
+        var hash = sha256.ComputeHash(der);
+        var fingerprint = new byte[16];
+        Array.Copy(hash, fingerprint, 16);
+        return fingerprint;
+    }
+
+    /// <summary>
+    /// Determines whether the given RSA private key corresponds to the specified key fingerprint.
+    /// </summary>
+    /// <param name="privateKey">The RSA private key to check.</param>
+    /// <param name="fingerprint">The 16-byte fingerprint to match against.</param>
+    /// <returns><c>true</c> if the private key's derived public key produces the same fingerprint; otherwise <c>false</c>.</returns>
+    public static bool MatchesFingerprint(AsymmetricKeyParameter privateKey, byte[] fingerprint)
+    {
+        var rsaPriv = (RsaPrivateCrtKeyParameters)privateKey;
+        var publicKey = new RsaKeyParameters(false, rsaPriv.Modulus, rsaPriv.PublicExponent);
+        var computed = ComputeKeyFingerprint(publicKey);
+        if (computed.Length != fingerprint.Length)
+            return false;
+        for (var i = 0; i < computed.Length; i++)
+            if (computed[i] != fingerprint[i])
+                return false;
+        return true;
+    }
+
+    /// <summary>
     /// Writes the encryption header to the output stream. The header contains encryption
     /// parameters that will be used later during decryption.
     /// </summary>
     /// <param name="output">The stream to write the header information to.</param>
     /// <param name="cipherValue">The byte value representing the cipher algorithm used.</param>
-    /// <param name="encKey">The encrypted symmetric key.</param>
+    /// <param name="keyFingerprint">The 16-byte fingerprint of the RSA public key used to encrypt.</param>
     /// <param name="nonce">The initialization vector (nonce) for the symmetric encryption.</param>
+    /// <param name="encKey">The encrypted symmetric key.</param>
     /// <param name="cancellationToken">Optional token to monitor for cancellation requests.</param>
     /// <returns>A task representing the asynchronous write operation.</returns>
     private async Task WriteHeaderAsync(
         Stream output,
         byte cipherValue,
-        byte[] encKey,
+        byte[] keyFingerprint,
         byte[] nonce,
+        byte[] encKey,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        
+
         // Identifier
-        await output.WriteBytesAsync([0xec, 0xde]);
-        
+        await output.WriteBytesAsync([0xec, 0xde]).ConfigureAwait(false);
+
         // Type
-        await output.WriteByteAsync((byte)EncryptionType.Rsa);
-        
+        await output.WriteByteAsync((byte)EncryptionType.Rsa).ConfigureAwait(false);
+
         // Version
-        await output.WriteByteAsync(0x01);
-        
+        await output.WriteByteAsync(0x02).ConfigureAwait(false);
+
         // Cipher
-        await output.WriteByteAsync(cipherValue);
-        
+        await output.WriteByteAsync(cipherValue).ConfigureAwait(false);
+
+        // Key fingerprint
+        await output.WriteBytesAsync(keyFingerprint).ConfigureAwait(false);
+
         // Nonce
-        await output.WriteBytesAsync(nonce);
-        
+        await output.WriteBytesAsync(nonce).ConfigureAwait(false);
+
         // Encrypted key
-        await output.WriteLengthValueAsync(encKey);
+        await output.WriteLengthValueAsync(encKey).ConfigureAwait(false);
     }
-    
+
     /// <summary>
     /// Encrypts data from the input stream and writes the encrypted data to the output stream using RSA encryption.
     /// </summary>
@@ -73,7 +115,7 @@ public class RsaDataEncryptionService
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        
+
         var rsaService = new PublicKeyServiceFactory().CreateRsaService();
         var bcsFactory = new BlockCipherServiceFactory();
         var bcsEngineFactory = new BlockCipherEngineFactory();
@@ -81,23 +123,26 @@ public class RsaDataEncryptionService
 
         // Get block cipher service from cipher enum
         var bcs = CipherUtils.GetBlockCipherService(cipher, bcsFactory, bcsEngineFactory);
-        
+
         // Generate random key and nonce
         var key = RandomUtils.GenerateRandomBytes(32);
         var nonce = RandomUtils.GenerateRandomBytes(12);
-        
+
         // Create GCM parameters for block cipher service
         var bcsParameters = bcsParametersFactory.CreateGcmParameters(key, nonce);
-        
+
+        // Compute key fingerprint
+        var keyFingerprint = ComputeKeyFingerprint(publicKey);
+
         // Encrypt key with public key
         var encKey = rsaService.Encrypt(key, publicKey);
 
         // Write header
-        await WriteHeaderAsync(output, (byte)cipher, encKey, nonce, cancellationToken);
-        
+        await WriteHeaderAsync(output, (byte)cipher, keyFingerprint, nonce, encKey, cancellationToken).ConfigureAwait(false);
+
         // Encrypt data
-        await bcs.EncryptAsync(input, output, bcsParameters, progress, cancellationToken);
-        
+        await bcs.EncryptAsync(input, output, bcsParameters, progress, cancellationToken).ConfigureAwait(false);
+
         // Clear key from memory
         Array.Clear(key, 0, key.Length);
     }
@@ -109,44 +154,47 @@ public class RsaDataEncryptionService
     /// <param name="input">The stream containing the encrypted data.</param>
     /// <param name="progress">Optional progress reporting mechanism.</param>
     /// <param name="cancellationToken">Optional token to monitor for cancellation requests.</param>
-    /// <returns>A tuple containing the cipher algorithm, encrypted key, and nonce extracted from the header.</returns>
+    /// <returns>A tuple containing the cipher algorithm, key fingerprint, nonce, and encrypted key extracted from the header.</returns>
     /// <exception cref="InvalidDataException">Thrown when the header format is invalid.</exception>
-    private async Task<(Cipher cipher, byte[] encKey, byte[] nonce)> ReadHeaderAsync(
+    private async Task<(Cipher cipher, byte[] keyFingerprint, byte[] nonce, byte[] encKey)> ReadHeaderAsync(
         Stream input,
         IProgress<int>? progress = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        
+
         // Identifier
-        var header = await input.ReadBytesAsync(2);
+        var header = await input.ReadBytesAsync(2).ConfigureAwait(false);
         if (header[0] != 0xec || header[1] != 0xde)
             throw new InvalidDataException("Invalid header");
-        
+
         // Type
-        var typeValue = await input.ReadByteAsync();
+        var typeValue = await input.ReadByteAsync().ConfigureAwait(false);
         if ((EncryptionType)typeValue != EncryptionType.Rsa)
             throw new InvalidDataException("Invalid encryption type");
-        
+
         // Version
-        var version = await input.ReadByteAsync();
-        if (version != 0x01)
+        var version = await input.ReadByteAsync().ConfigureAwait(false);
+        if (version != 0x02)
             throw new InvalidDataException("Invalid version");
-        
+
         // Cipher
-        var cipherValue = await input.ReadByteAsync();
-        var cipher = (Cipher)cipherValue; 
-        
+        var cipherValue = await input.ReadByteAsync().ConfigureAwait(false);
+        var cipher = (Cipher)cipherValue;
+
+        // Key fingerprint
+        var keyFingerprint = await input.ReadBytesAsync(16).ConfigureAwait(false);
+
         // Nonce
-        var nonce = await input.ReadBytesAsync(12);
-        
+        var nonce = await input.ReadBytesAsync(12).ConfigureAwait(false);
+
         // Encrypted key
-        var encKey = await input.ReadLengthValueAsync();
-        
+        var encKey = await input.ReadLengthValueAsync().ConfigureAwait(false);
+
         // Progress
-        progress?.Report(21 + encKey.Length);
-        
-        return (cipher, encKey, nonce);
+        progress?.Report(37 + encKey.Length);
+
+        return (cipher, keyFingerprint, nonce, encKey);
     }
 
     /// <summary>
@@ -158,6 +206,7 @@ public class RsaDataEncryptionService
     /// <param name="progress">Optional progress reporting mechanism.</param>
     /// <param name="cancellationToken">Optional token to monitor for cancellation requests.</param>
     /// <returns>A task representing the asynchronous decryption operation.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when the private key does not match the key fingerprint stored in the header.</exception>
     public async Task DecryptAsync(
         Stream input,
         Stream output,
@@ -166,27 +215,31 @@ public class RsaDataEncryptionService
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        
+
         var rsaService = new PublicKeyServiceFactory().CreateRsaService();
         var bcsFactory = new BlockCipherServiceFactory();
         var bcsEngineFactory = new BlockCipherEngineFactory();
         var bcsParametersFactory = new BlockCipherParametersFactory();
-        
+
         // Read header
-        var (cipher, encKey, nonce) = await ReadHeaderAsync(input, progress, cancellationToken);
-        
+        var (cipher, keyFingerprint, nonce, encKey) = await ReadHeaderAsync(input, progress, cancellationToken).ConfigureAwait(false);
+
+        // Validate private key matches fingerprint
+        if (!MatchesFingerprint(privateKey, keyFingerprint))
+            throw new InvalidOperationException("The private key does not match the key fingerprint stored in the header.");
+
         // Get block cipher service from cipher enum
         var bcs = CipherUtils.GetBlockCipherService(cipher, bcsFactory, bcsEngineFactory);
 
         // Decrypt key with private key
         var key = rsaService.Decrypt(encKey, privateKey);
-        
+
         // Create GCM parameters for block cipher service
-        var bcsParameters = bcsParametersFactory.CreateGcmParameters(key, nonce); 
-        
+        var bcsParameters = bcsParametersFactory.CreateGcmParameters(key, nonce);
+
         // Decrypt data
-        await bcs.DecryptAsync(input, output, bcsParameters, progress, cancellationToken);
-        
+        await bcs.DecryptAsync(input, output, bcsParameters, progress, cancellationToken).ConfigureAwait(false);
+
         // Clear key from memory
         Array.Clear(key, 0, key.Length);
     }
