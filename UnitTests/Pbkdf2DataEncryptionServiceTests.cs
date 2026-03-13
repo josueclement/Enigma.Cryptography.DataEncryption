@@ -91,4 +91,62 @@ public class Pbkdf2DataEncryptionServiceTests
         await service.DecryptAsync(inputDec, outputDec, Password, cancellationToken: ct);
         Assert.Equal([], outputDec.ToArray());
     }
+
+    [Fact]
+    public async Task EncryptAsync_NullPassword_ThrowsArgumentNullException()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var service = new Pbkdf2DataEncryptionService();
+        using var input = new MemoryStream(Data);
+        using var output = new MemoryStream();
+        await Assert.ThrowsAsync<ArgumentNullException>(() =>
+            service.EncryptAsync(input, output, Cipher.Aes256Gcm, null!, Iterations, cancellationToken: ct));
+    }
+
+    [Fact]
+    public async Task EncryptAsync_ZeroIterations_ThrowsArgumentOutOfRangeException()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var service = new Pbkdf2DataEncryptionService();
+        using var input = new MemoryStream(Data);
+        using var output = new MemoryStream();
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            service.EncryptAsync(input, output, Cipher.Aes256Gcm, Password, 0, cancellationToken: ct));
+    }
+
+    [Fact]
+    public async Task EncryptAsync_InvalidCipher_ThrowsArgumentOutOfRangeException()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var service = new Pbkdf2DataEncryptionService();
+        using var input = new MemoryStream(Data);
+        using var output = new MemoryStream();
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            service.EncryptAsync(input, output, (Cipher)0xFF, Password, Iterations, cancellationToken: ct));
+    }
+
+    [Fact]
+    public async Task DecryptAsync_TruncatedCiphertext_ThrowsException()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var enc = await Encrypt(Cipher.Aes256Gcm, Password, ct);
+        var truncated = enc[..10];
+        var service = new Pbkdf2DataEncryptionService();
+        using var input = new MemoryStream(truncated);
+        using var output = new MemoryStream();
+        await Assert.ThrowsAnyAsync<Exception>(() =>
+            service.DecryptAsync(input, output, Password, cancellationToken: ct));
+    }
+
+    [Fact]
+    public async Task EncryptAsync_CancellationAlreadyCancelled_Throws()
+    {
+        var service = new Pbkdf2DataEncryptionService();
+        using var input = new MemoryStream(Data);
+        using var output = new MemoryStream();
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
+            service.EncryptAsync(input, output, Cipher.Aes256Gcm, Password, Iterations, cancellationToken: cts.Token));
+    }
 }

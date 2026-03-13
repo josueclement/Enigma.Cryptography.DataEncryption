@@ -26,12 +26,10 @@ public class MLKemDataEncryptionService
     /// </summary>
     private static byte[] ComputeKeyFingerprint(AsymmetricKeyParameter publicKey)
     {
-        var keyBytes = ((MLKemPublicKeyParameters)publicKey).GetEncoded();
-        using var sha256 = SHA256.Create();
-        var hash = sha256.ComputeHash(keyBytes);
-        var fingerprint = new byte[16];
-        Array.Copy(hash, fingerprint, 16);
-        return fingerprint;
+        if (publicKey is not MLKemPublicKeyParameters mlKemPub)
+            throw new ArgumentException("Expected an ML-KEM public key.", nameof(publicKey));
+        var keyBytes = mlKemPub.GetEncoded();
+        return CryptoHelpers.ComputeFingerprint(keyBytes);
     }
 
     /// <summary>
@@ -43,15 +41,11 @@ public class MLKemDataEncryptionService
     // ReSharper disable once InconsistentNaming
     public static bool MatchesFingerprint(AsymmetricKeyParameter privateKey, byte[] fingerprint)
     {
-        var mlKemPriv = (MLKemPrivateKeyParameters)privateKey;
+        if (privateKey is not MLKemPrivateKeyParameters mlKemPriv)
+            throw new ArgumentException("Expected an ML-KEM private key.", nameof(privateKey));
         var publicKey = mlKemPriv.GetPublicKey();
         var computed = ComputeKeyFingerprint(publicKey);
-        if (computed.Length != fingerprint.Length)
-            return false;
-        for (var i = 0; i < computed.Length; i++)
-            if (computed[i] != fingerprint[i])
-                return false;
-        return true;
+        return CryptoHelpers.FixedTimeEquals(computed, fingerprint);
     }
 
     /// <summary>
@@ -118,13 +112,15 @@ public class MLKemDataEncryptionService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (input is null) throw new ArgumentNullException(nameof(input));
+        if (output is null) throw new ArgumentNullException(nameof(output));
+        if (publicKey is null) throw new ArgumentNullException(nameof(publicKey));
+        if (!Enum.IsDefined(typeof(Cipher), cipher)) throw new ArgumentOutOfRangeException(nameof(cipher));
+
         var mlKemService = new MLKemServiceFactory().CreateKem1024();
-        var bcsFactory = new BlockCipherServiceFactory();
-        var bcsEngineFactory = new BlockCipherEngineFactory();
-        var bcsParametersFactory = new BlockCipherParametersFactory();
 
         // Get block cipher service from cipher enum
-        var bcs = CipherUtils.GetBlockCipherService(cipher, bcsFactory, bcsEngineFactory);
+        var bcs = CipherUtils.GetBlockCipherService(cipher, CryptoHelpers.BcsFactory, CryptoHelpers.BcsEngineFactory);
 
         // Generate random nonce
         var nonce = RandomUtils.GenerateRandomBytes(12);
@@ -135,17 +131,22 @@ public class MLKemDataEncryptionService
         // Encapsulate secret key using public key
         var (encapsulation, secret) = mlKemService.Encapsulate(publicKey);
 
-        // Create GCM parameters for block cipher service
-        var bcsParameters = bcsParametersFactory.CreateGcmParameters(secret, nonce);
+        try
+        {
+            // Create GCM parameters for block cipher service
+            var bcsParameters = CryptoHelpers.BcsParametersFactory.CreateGcmParameters(secret, nonce);
 
-        // Write header
-        await WriteHeaderAsync(output, (byte)cipher, keyFingerprint, nonce, encapsulation, cancellationToken).ConfigureAwait(false);
+            // Write header
+            await WriteHeaderAsync(output, (byte)cipher, keyFingerprint, nonce, encapsulation, cancellationToken).ConfigureAwait(false);
 
-        // Encrypt data
-        await bcs.EncryptAsync(input, output, bcsParameters, progress, cancellationToken).ConfigureAwait(false);
-
-        // Clear key from memory
-        Array.Clear(secret, 0, secret.Length);
+            // Encrypt data
+            await bcs.EncryptAsync(input, output, bcsParameters, progress, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Clear key from memory
+            Array.Clear(secret, 0, secret.Length);
+        }
     }
 
     /// <summary>
@@ -181,7 +182,7 @@ public class MLKemDataEncryptionService
 
         // Cipher
         var cipherValue = await input.ReadByteAsync().ConfigureAwait(false);
-        var cipher = (Cipher)cipherValue;
+        var cipher = CryptoHelpers.ValidateCipher(cipherValue);
 
         // Key fingerprint
         var keyFingerprint = await input.ReadBytesAsync(16).ConfigureAwait(false);
@@ -217,10 +218,11 @@ public class MLKemDataEncryptionService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (input is null) throw new ArgumentNullException(nameof(input));
+        if (output is null) throw new ArgumentNullException(nameof(output));
+        if (privateKey is null) throw new ArgumentNullException(nameof(privateKey));
+
         var mlKemService = new MLKemServiceFactory().CreateKem1024();
-        var bcsFactory = new BlockCipherServiceFactory();
-        var bcsEngineFactory = new BlockCipherEngineFactory();
-        var bcsParametersFactory = new BlockCipherParametersFactory();
 
         // Read header
         var (cipher, keyFingerprint, nonce, encapsulation) = await ReadHeaderAsync(input, progress, cancellationToken).ConfigureAwait(false);
@@ -230,18 +232,23 @@ public class MLKemDataEncryptionService
             throw new InvalidOperationException("The private key does not match the key fingerprint stored in the header.");
 
         // Get block cipher service from cipher enum
-        var bcs = CipherUtils.GetBlockCipherService(cipher, bcsFactory, bcsEngineFactory);
+        var bcs = CipherUtils.GetBlockCipherService(cipher, CryptoHelpers.BcsFactory, CryptoHelpers.BcsEngineFactory);
 
         // Decapsulate secret key using private key
         var secret = mlKemService.Decapsulate(encapsulation, privateKey);
 
-        // Create GCM parameters for block cipher service
-        var bcsParameters = bcsParametersFactory.CreateGcmParameters(secret, nonce);
+        try
+        {
+            // Create GCM parameters for block cipher service
+            var bcsParameters = CryptoHelpers.BcsParametersFactory.CreateGcmParameters(secret, nonce);
 
-        // Decrypt data
-        await bcs.DecryptAsync(input, output, bcsParameters, progress, cancellationToken).ConfigureAwait(false);
-
-        // Clear key from memory
-        Array.Clear(secret, 0, secret.Length);
+            // Decrypt data
+            await bcs.DecryptAsync(input, output, bcsParameters, progress, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Clear key from memory
+            Array.Clear(secret, 0, secret.Length);
+        }
     }
 }
