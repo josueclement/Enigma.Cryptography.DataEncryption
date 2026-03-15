@@ -160,4 +160,40 @@ public class Argon2DataEncryptionServiceTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
             service.EncryptAsync(input, output, Cipher.Aes256Gcm, Password, cancellationToken: cts.Token));
     }
+
+    [Fact]
+    public async Task DecryptAsync_UnsupportedVersion_ThrowsInvalidDataException()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var enc = await Encrypt(Cipher.Aes256Gcm, Password, ct);
+
+        // Tamper version byte (index 3) to 0xFF
+        enc[3] = 0xFF;
+
+        var service = new Argon2DataEncryptionService();
+        using var input = new MemoryStream(enc);
+        using var output = new MemoryStream();
+        var ex = await Assert.ThrowsAsync<InvalidDataException>(() =>
+            service.DecryptAsync(input, output, Password, cancellationToken: ct));
+        Assert.Contains("Unsupported version: 0xff", ex.Message);
+    }
+
+    [Fact]
+    public async Task GoldenBlob_V1_DecryptsSuccessfully()
+    {
+        var ct = TestContext.Current.CancellationToken;
+
+        // Encrypt known data and capture the blob
+        var enc = await Encrypt(Cipher.Aes256Gcm, Password, ct);
+
+        // Verify it decrypts correctly
+        var dec = await Decrypt(enc, Password, ct);
+        Assert.Equal(Data, dec);
+
+        // Verify the header prefix matches expected v1 format
+        Assert.Equal(0xec, enc[0]); // identifier
+        Assert.Equal(0xde, enc[1]); // identifier
+        Assert.Equal(0x02, enc[2]); // type = Argon2
+        Assert.Equal(0x01, enc[3]); // version = 1
+    }
 }

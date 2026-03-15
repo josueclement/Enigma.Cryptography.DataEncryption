@@ -16,6 +16,8 @@ namespace Enigma.Cryptography.DataEncryption;
 /// </summary>
 public class Argon2DataEncryptionService
 {
+    private const byte CurrentVersion = 0x01;
+
     /// <summary>
     /// Writes the encryption header to the output stream. The header contains encryption
     /// parameters that will be used later during decryption.
@@ -48,7 +50,7 @@ public class Argon2DataEncryptionService
         await output.WriteByteAsync((byte)EncryptionType.Argon2).ConfigureAwait(false);
 
         // Version
-        await output.WriteByteAsync(0x01).ConfigureAwait(false);
+        await output.WriteByteAsync(CurrentVersion).ConfigureAwait(false);
 
         // Cipher
         await output.WriteByteAsync(cipherValue).ConfigureAwait(false);
@@ -136,19 +138,15 @@ public class Argon2DataEncryptionService
     }
 
     /// <summary>
-    /// Reads and parses the encryption header from the input stream to extract
-    /// the parameters needed for decryption.
+    /// Reads and validates the common prefix (identifier, type, version) from the input stream.
     /// </summary>
     /// <param name="input">The stream to read the header from</param>
-    /// <param name="progress">Optional progress reporter</param>
     /// <param name="cancellationToken">Optional cancellation token</param>
-    /// <returns>A tuple containing the cipher algorithm and encryption parameters</returns>
-    /// <exception cref="InvalidDataException">Thrown when the header is invalid</exception>
-    private async Task<(Cipher cipher, byte[] nonce, byte[] salt, int iterations, int parallelism, int memoryPowOfTwo)>
-        ReadHeaderAsync(
-            Stream input,
-            IProgress<int>? progress = null,
-            CancellationToken cancellationToken = default)
+    /// <returns>The version byte from the header.</returns>
+    /// <exception cref="InvalidDataException">Thrown when the header identifier or type is invalid</exception>
+    private async Task<byte> ReadCommonPrefixAsync(
+        Stream input,
+        CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -163,33 +161,7 @@ public class Argon2DataEncryptionService
             throw new InvalidDataException("Invalid encryption type");
 
         // Version
-        var version = await input.ReadByteAsync().ConfigureAwait(false);
-        if (version != 0x01)
-            throw new InvalidDataException("Invalid version");
-
-        // Cipher
-        var cipherValue = await input.ReadByteAsync().ConfigureAwait(false);
-        var cipher = CryptoHelpers.ValidateCipher(cipherValue);
-
-        // Nonce
-        var nonce = await input.ReadBytesAsync(12).ConfigureAwait(false);
-
-        // Salt
-        var salt = await input.ReadBytesAsync(16).ConfigureAwait(false);
-
-        // Iterations
-        var iterations = await input.ReadIntAsync().ConfigureAwait(false);
-
-        // Parallelism
-        var parallelism = await input.ReadIntAsync().ConfigureAwait(false);
-
-        // Memory pow of two
-        var memoryPowOfTwo = await input.ReadIntAsync().ConfigureAwait(false);
-
-        // Progress
-        progress?.Report(45);
-
-        return (cipher, nonce, salt, iterations, parallelism, memoryPowOfTwo);
+        return await input.ReadByteAsync().ConfigureAwait(false);
     }
 
     /// <summary>
@@ -217,15 +189,52 @@ public class Argon2DataEncryptionService
         if (password is null) throw new ArgumentNullException(nameof(password));
         if (password.Length == 0) throw new ArgumentException("Password cannot be empty.", nameof(password));
 
-        var argon2Service = new Argon2Service();
+        var version = await ReadCommonPrefixAsync(input, cancellationToken).ConfigureAwait(false);
 
-        // Read header and extract encryption parameters
-        var (cipher, nonce, salt, iterations, parallelism, memoryPowOfTwo) = await ReadHeaderAsync(input, progress, cancellationToken).ConfigureAwait(false);
+        switch (version)
+        {
+            case 0x01:
+                await DecryptV1Async(input, output, password, progress, cancellationToken).ConfigureAwait(false);
+                break;
+            default:
+                throw new InvalidDataException($"Unsupported version: 0x{version:x2}");
+        }
+    }
+
+    private async Task DecryptV1Async(
+        Stream input,
+        Stream output,
+        byte[] password,
+        IProgress<int>? progress,
+        CancellationToken cancellationToken)
+    {
+        // Cipher
+        var cipherValue = await input.ReadByteAsync().ConfigureAwait(false);
+        var cipher = CryptoHelpers.ValidateCipher(cipherValue);
+
+        // Nonce
+        var nonce = await input.ReadBytesAsync(12).ConfigureAwait(false);
+
+        // Salt
+        var salt = await input.ReadBytesAsync(16).ConfigureAwait(false);
+
+        // Iterations
+        var iterations = await input.ReadIntAsync().ConfigureAwait(false);
+
+        // Parallelism
+        var parallelism = await input.ReadIntAsync().ConfigureAwait(false);
+
+        // Memory pow of two
+        var memoryPowOfTwo = await input.ReadIntAsync().ConfigureAwait(false);
+
+        // Progress
+        progress?.Report(45);
 
         // Get block cipher service from cipher enum
         var bcs = CipherUtils.GetBlockCipherService(cipher, CryptoHelpers.BcsFactory, CryptoHelpers.BcsEngineFactory);
 
         // Generate key from password and salt
+        var argon2Service = new Argon2Service();
         var key = argon2Service.GenerateKey(32, password, salt, iterations, parallelism, memoryPowOfTwo);
 
         try

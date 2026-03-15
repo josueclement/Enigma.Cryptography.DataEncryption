@@ -19,6 +19,8 @@ namespace Enigma.Cryptography.DataEncryption;
 /// </summary>
 public class RsaDataEncryptionService
 {
+    private const byte CurrentVersion = 0x02;
+
     /// <summary>
     /// Computes a 16-byte key fingerprint as the first 16 bytes of the SHA-256 hash
     /// of the public key's SubjectPublicKeyInfo DER encoding.
@@ -73,7 +75,7 @@ public class RsaDataEncryptionService
         await output.WriteByteAsync((byte)EncryptionType.Rsa).ConfigureAwait(false);
 
         // Version
-        await output.WriteByteAsync(0x02).ConfigureAwait(false);
+        await output.WriteByteAsync(CurrentVersion).ConfigureAwait(false);
 
         // Cipher
         await output.WriteByteAsync(cipherValue).ConfigureAwait(false);
@@ -147,17 +149,14 @@ public class RsaDataEncryptionService
     }
 
     /// <summary>
-    /// Reads and parses the encryption header from the input stream to extract
-    /// the parameters needed for decryption.
+    /// Reads and validates the common prefix (identifier, type, version) from the input stream.
     /// </summary>
     /// <param name="input">The stream containing the encrypted data.</param>
-    /// <param name="progress">Optional progress reporting mechanism.</param>
     /// <param name="cancellationToken">Optional token to monitor for cancellation requests.</param>
-    /// <returns>A tuple containing the cipher algorithm, key fingerprint, nonce, and encrypted key extracted from the header.</returns>
-    /// <exception cref="InvalidDataException">Thrown when the header format is invalid.</exception>
-    private async Task<(Cipher cipher, byte[] keyFingerprint, byte[] nonce, byte[] encKey)> ReadHeaderAsync(
+    /// <returns>The version byte from the header.</returns>
+    /// <exception cref="InvalidDataException">Thrown when the header identifier or type is invalid.</exception>
+    private async Task<byte> ReadCommonPrefixAsync(
         Stream input,
-        IProgress<int>? progress = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -173,27 +172,7 @@ public class RsaDataEncryptionService
             throw new InvalidDataException("Invalid encryption type");
 
         // Version
-        var version = await input.ReadByteAsync().ConfigureAwait(false);
-        if (version != 0x02)
-            throw new InvalidDataException("Invalid version");
-
-        // Cipher
-        var cipherValue = await input.ReadByteAsync().ConfigureAwait(false);
-        var cipher = CryptoHelpers.ValidateCipher(cipherValue);
-
-        // Key fingerprint
-        var keyFingerprint = await input.ReadBytesAsync(16).ConfigureAwait(false);
-
-        // Nonce
-        var nonce = await input.ReadBytesAsync(12).ConfigureAwait(false);
-
-        // Encrypted key
-        var encKey = await input.ReadLengthValueAsync().ConfigureAwait(false);
-
-        // Progress
-        progress?.Report(37 + encKey.Length);
-
-        return (cipher, keyFingerprint, nonce, encKey);
+        return await input.ReadByteAsync().ConfigureAwait(false);
     }
 
     /// <summary>
@@ -219,10 +198,40 @@ public class RsaDataEncryptionService
         if (output is null) throw new ArgumentNullException(nameof(output));
         if (privateKey is null) throw new ArgumentNullException(nameof(privateKey));
 
-        var rsaService = new PublicKeyServiceFactory().CreateRsaService();
+        var version = await ReadCommonPrefixAsync(input, cancellationToken).ConfigureAwait(false);
 
-        // Read header
-        var (cipher, keyFingerprint, nonce, encKey) = await ReadHeaderAsync(input, progress, cancellationToken).ConfigureAwait(false);
+        switch (version)
+        {
+            case 0x02:
+                await DecryptV2Async(input, output, privateKey, progress, cancellationToken).ConfigureAwait(false);
+                break;
+            default:
+                throw new InvalidDataException($"Unsupported version: 0x{version:x2}");
+        }
+    }
+
+    private async Task DecryptV2Async(
+        Stream input,
+        Stream output,
+        AsymmetricKeyParameter privateKey,
+        IProgress<int>? progress,
+        CancellationToken cancellationToken)
+    {
+        // Cipher
+        var cipherValue = await input.ReadByteAsync().ConfigureAwait(false);
+        var cipher = CryptoHelpers.ValidateCipher(cipherValue);
+
+        // Key fingerprint
+        var keyFingerprint = await input.ReadBytesAsync(16).ConfigureAwait(false);
+
+        // Nonce
+        var nonce = await input.ReadBytesAsync(12).ConfigureAwait(false);
+
+        // Encrypted key
+        var encKey = await input.ReadLengthValueAsync().ConfigureAwait(false);
+
+        // Progress
+        progress?.Report(37 + encKey.Length);
 
         // Validate private key matches fingerprint
         if (!MatchesFingerprint(privateKey, keyFingerprint))
@@ -232,6 +241,7 @@ public class RsaDataEncryptionService
         var bcs = CipherUtils.GetBlockCipherService(cipher, CryptoHelpers.BcsFactory, CryptoHelpers.BcsEngineFactory);
 
         // Decrypt key with private key
+        var rsaService = new PublicKeyServiceFactory().CreateRsaService();
         var key = rsaService.Decrypt(encKey, privateKey);
 
         try
