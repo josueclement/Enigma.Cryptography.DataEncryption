@@ -44,9 +44,12 @@ Password-based encryption using PBKDF2-HMAC-SHA256.
 
 ### Decryption process
 
-1. Read the header from the input stream.
-2. Derive the 32-byte key with PBKDF2 using the password, salt, and iteration count read from the header.
-3. Decrypt the input stream into the output stream.
+1. Read and validate the common prefix (identifier, type, version) from the input stream.
+2. Dispatch to the version-specific decryption handler based on the version byte.
+3. Read the version-specific header fields (cipher, nonce, salt, iteration count).
+4. Derive the 32-byte key with PBKDF2 using the password, salt, and iteration count from the header.
+5. Decrypt the input stream into the output stream.
+6. Clear the key from memory.
 
 ### Usage
 
@@ -89,9 +92,12 @@ Password-based encryption using Argon2id.
 
 ### Decryption process
 
-1. Read the header from the input stream.
-2. Derive the 32-byte key with Argon2id using the password and cost parameters read from the header.
-3. Decrypt the input stream into the output stream.
+1. Read and validate the common prefix (identifier, type, version) from the input stream.
+2. Dispatch to the version-specific decryption handler based on the version byte.
+3. Read the version-specific header fields (cipher, nonce, salt, cost parameters).
+4. Derive the 32-byte key with Argon2id using the password and cost parameters from the header.
+5. Decrypt the input stream into the output stream.
+6. Clear the key from memory.
 
 ### Usage
 
@@ -137,11 +143,13 @@ Hybrid encryption using an RSA public/private key pair to protect a random symme
 
 ### Decryption process
 
-1. Read the header from the input stream.
-2. Validate that the supplied private key matches the fingerprint stored in the header. Throws `InvalidOperationException` if they do not match.
-3. Decrypt the encrypted symmetric key with the RSA private key.
-4. Decrypt the input stream into the output stream.
-5. Clear the symmetric key from memory.
+1. Read and validate the common prefix (identifier, type, version) from the input stream.
+2. Dispatch to the version-specific decryption handler based on the version byte.
+3. Read the version-specific header fields (cipher, key fingerprint, nonce, encrypted key).
+4. Validate that the supplied private key matches the fingerprint stored in the header. Throws `InvalidOperationException` if they do not match.
+5. Decrypt the encrypted symmetric key with the RSA private key.
+6. Decrypt the input stream into the output stream.
+7. Clear the symmetric key from memory.
 
 ### Usage
 
@@ -189,11 +197,13 @@ Post-quantum hybrid encryption using ML-KEM-1024 (NIST FIPS 203) for key encapsu
 
 ### Decryption process
 
-1. Read the header from the input stream.
-2. Validate that the supplied private key matches the fingerprint stored in the header. Throws `InvalidOperationException` if they do not match.
-3. Decapsulate the shared secret from the encapsulation using the ML-KEM-1024 private key.
-4. Decrypt the input stream into the output stream.
-5. Clear the secret from memory.
+1. Read and validate the common prefix (identifier, type, version) from the input stream.
+2. Dispatch to the version-specific decryption handler based on the version byte.
+3. Read the version-specific header fields (cipher, key fingerprint, nonce, encapsulation).
+4. Validate that the supplied private key matches the fingerprint stored in the header. Throws `InvalidOperationException` if they do not match.
+5. Decapsulate the shared secret from the encapsulation using the ML-KEM-1024 private key.
+6. Decrypt the input stream into the output stream.
+7. Clear the secret from memory.
 
 ### Usage
 
