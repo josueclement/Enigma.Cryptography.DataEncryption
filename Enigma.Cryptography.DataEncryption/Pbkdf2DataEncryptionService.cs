@@ -15,6 +15,8 @@ namespace Enigma.Cryptography.DataEncryption;
 /// </summary>
 public class Pbkdf2DataEncryptionService
 {
+    private const byte CurrentVersion = 0x01;
+
     /// <summary>
     /// Writes the encryption header to the output stream. The header contains encryption
     /// parameters that will be used later during decryption.
@@ -43,7 +45,7 @@ public class Pbkdf2DataEncryptionService
         await output.WriteByteAsync((byte)EncryptionType.Pbkdf2).ConfigureAwait(false);
 
         // Version
-        await output.WriteByteAsync(0x01).ConfigureAwait(false);
+        await output.WriteByteAsync(CurrentVersion).ConfigureAwait(false);
 
         // Cipher
         await output.WriteByteAsync(cipherValue).ConfigureAwait(false);
@@ -81,13 +83,16 @@ public class Pbkdf2DataEncryptionService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (input is null) throw new ArgumentNullException(nameof(input));
+        if (output is null) throw new ArgumentNullException(nameof(output));
+        if (password is null) throw new ArgumentNullException(nameof(password));
+        if (iterations <= 0) throw new ArgumentOutOfRangeException(nameof(iterations));
+        if (!Enum.IsDefined(typeof(Cipher), cipher)) throw new ArgumentOutOfRangeException(nameof(cipher));
+
         var pbkdf2Service = new Pbkdf2Service();
-        var bcsFactory = new BlockCipherServiceFactory();
-        var bcsEngineFactory = new BlockCipherEngineFactory();
-        var bcsParametersFactory = new BlockCipherParametersFactory();
 
         // Get block cipher service from cipher enum
-        var bcs = CipherUtils.GetBlockCipherService(cipher, bcsFactory, bcsEngineFactory);
+        var bcs = CipherUtils.GetBlockCipherService(cipher, CryptoHelpers.BcsFactory, CryptoHelpers.BcsEngineFactory);
 
         // Generate random salt
         var salt = RandomUtils.GenerateRandomBytes(16);
@@ -96,31 +101,33 @@ public class Pbkdf2DataEncryptionService
         // Generate key from password and salt
         var key = pbkdf2Service.GenerateKey(32, password, salt, iterations);
 
-        // Create GCM parameters for block cipher service
-        var bcsParameters = bcsParametersFactory.CreateGcmParameters(key, nonce);
+        try
+        {
+            // Create GCM parameters for block cipher service
+            var bcsParameters = CryptoHelpers.BcsParametersFactory.CreateGcmParameters(key, nonce);
 
-        // Write header
-        await WriteHeaderAsync(output, (byte)cipher, nonce, salt, iterations, cancellationToken).ConfigureAwait(false);
+            // Write header
+            await WriteHeaderAsync(output, (byte)cipher, nonce, salt, iterations, cancellationToken).ConfigureAwait(false);
 
-        // Encrypt data
-        await bcs.EncryptAsync(input, output, bcsParameters, progress, cancellationToken).ConfigureAwait(false);
-
-        // Clear key from memory
-        Array.Clear(key, 0, key.Length);
+            // Encrypt data
+            await bcs.EncryptAsync(input, output, bcsParameters, progress, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Clear key from memory
+            Array.Clear(key, 0, key.Length);
+        }
     }
 
     /// <summary>
-    /// Reads and parses the encryption header from the input stream to extract
-    /// the parameters needed for decryption.
+    /// Reads and validates the common prefix (identifier, type, version) from the input stream.
     /// </summary>
     /// <param name="input">The input stream containing the encrypted data.</param>
-    /// <param name="progress">Optional progress reporting interface.</param>
     /// <param name="cancellationToken">Optional token to cancel the operation.</param>
-    /// <returns>A tuple containing the cipher algorithm, nonce, salt, and iterations extracted from the header.</returns>
-    /// <exception cref="InvalidDataException">Thrown when the header is invalid or unsupported.</exception>
-    private async Task<(Cipher cipher, byte[] nonce, byte[] salt, int iterations)> ReadHeaderAsync(
+    /// <returns>The version byte from the header.</returns>
+    /// <exception cref="InvalidDataException">Thrown when the header identifier or type is invalid.</exception>
+    private async Task<byte> ReadCommonPrefixAsync(
         Stream input,
-        IProgress<int>? progress = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -136,27 +143,7 @@ public class Pbkdf2DataEncryptionService
             throw new InvalidDataException("Invalid encryption type");
 
         // Version
-        var version = await input.ReadByteAsync().ConfigureAwait(false);
-        if (version != 0x01)
-            throw new InvalidDataException("Invalid version");
-
-        // Cipher
-        var cipherValue = await input.ReadByteAsync().ConfigureAwait(false);
-        var cipher = (Cipher)cipherValue;
-
-        // Nonce
-        var nonce = await input.ReadBytesAsync(12).ConfigureAwait(false);
-
-        // Salt
-        var salt = await input.ReadBytesAsync(16).ConfigureAwait(false);
-
-        // Iterations
-        var iterations = await input.ReadIntAsync().ConfigureAwait(false);
-
-        // Progress
-        progress?.Report(37);
-
-        return (cipher, nonce, salt, iterations);
+        return await input.ReadByteAsync().ConfigureAwait(false);
     }
 
     /// <summary>
@@ -180,27 +167,64 @@ public class Pbkdf2DataEncryptionService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var pbkdf2Service = new Pbkdf2Service();
-        var bcsFactory = new BlockCipherServiceFactory();
-        var bcsEngineFactory = new BlockCipherEngineFactory();
-        var bcsParametersFactory = new BlockCipherParametersFactory();
+        if (input is null) throw new ArgumentNullException(nameof(input));
+        if (output is null) throw new ArgumentNullException(nameof(output));
+        if (password is null) throw new ArgumentNullException(nameof(password));
 
-        // Read header
-        var (cipher, nonce, salt, iterations) = await ReadHeaderAsync(input, progress, cancellationToken).ConfigureAwait(false);
+        var version = await ReadCommonPrefixAsync(input, cancellationToken).ConfigureAwait(false);
+
+        switch (version)
+        {
+            case 0x01:
+                await DecryptV1Async(input, output, password, progress, cancellationToken).ConfigureAwait(false);
+                break;
+            default:
+                throw new InvalidDataException($"Unsupported version: 0x{version:x2}");
+        }
+    }
+
+    private async Task DecryptV1Async(
+        Stream input,
+        Stream output,
+        string password,
+        IProgress<int>? progress,
+        CancellationToken cancellationToken)
+    {
+        // Cipher
+        var cipherValue = await input.ReadByteAsync().ConfigureAwait(false);
+        var cipher = CryptoHelpers.ValidateCipher(cipherValue);
+
+        // Nonce
+        var nonce = await input.ReadBytesAsync(12).ConfigureAwait(false);
+
+        // Salt
+        var salt = await input.ReadBytesAsync(16).ConfigureAwait(false);
+
+        // Iterations
+        var iterations = await input.ReadIntAsync().ConfigureAwait(false);
+
+        // Progress
+        progress?.Report(37);
 
         // Get block cipher service from cipher enum
-        var bcs = CipherUtils.GetBlockCipherService(cipher, bcsFactory, bcsEngineFactory);
+        var bcs = CipherUtils.GetBlockCipherService(cipher, CryptoHelpers.BcsFactory, CryptoHelpers.BcsEngineFactory);
 
         // Generate key from password and salt
+        var pbkdf2Service = new Pbkdf2Service();
         var key = pbkdf2Service.GenerateKey(32, password, salt, iterations);
 
-        // Create GCM parameters for block cipher service
-        var bcsParameters = bcsParametersFactory.CreateGcmParameters(key, nonce);
+        try
+        {
+            // Create GCM parameters for block cipher service
+            var bcsParameters = CryptoHelpers.BcsParametersFactory.CreateGcmParameters(key, nonce);
 
-        // Decrypt data
-        await bcs.DecryptAsync(input, output, bcsParameters, progress, cancellationToken).ConfigureAwait(false);
-
-        // Clear key from memory
-        Array.Clear(key, 0, key.Length);
+            // Decrypt data
+            await bcs.DecryptAsync(input, output, bcsParameters, progress, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Clear key from memory
+            Array.Clear(key, 0, key.Length);
+        }
     }
 }

@@ -8,8 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Build the library
 dotnet build Enigma.Cryptography.DataEncryption/Enigma.Cryptography.DataEncryption.csproj
 
-# Build and run the console demo app (manual integration test)
-dotnet run --project ConsoleApp1/ConsoleApp1.csproj
+# Run the unit tests (xUnit v3 — uses dotnet run, not dotnet test)
+dotnet run --project UnitTests/UnitTests.csproj
 
 # Pack the NuGet package
 dotnet pack Enigma.Cryptography.DataEncryption/Enigma.Cryptography.DataEncryption.csproj
@@ -17,18 +17,27 @@ dotnet pack Enigma.Cryptography.DataEncryption/Enigma.Cryptography.DataEncryptio
 
 ## Architecture
 
-This is a multi-target .NET library (`netstandard2.0`, `netstandard2.1`, `net472`, `net6.0`–`net9.0`) that wraps the `Enigma.Cryptography` NuGet package to provide stream-based encryption/decryption services.
+This is a multi-target .NET library (`netstandard2.0`, `net8.0`) that wraps the `Enigma.Cryptography` NuGet package to provide stream-based encryption/decryption services.
 
 **Main library:** `Enigma.Cryptography.DataEncryption/`
-**Demo/smoke-test app:** `ConsoleApp1/` — exercises all four services against in-memory streams
 
 ### Encryption Services
 
-Each service (`*DataEncryptionService.cs`) exposes `EncryptAsync` / `DecryptAsync` operating on `Stream` pairs with optional `IProgress<int>` and `CancellationToken`. They all follow the same internal pattern:
+Each service (`*DataEncryptionService.cs`) exposes `EncryptAsync` / `DecryptAsync` operating on `Stream` pairs with optional `IProgress<int>` and `CancellationToken`.
 
-1. Write a binary header to the output stream (identifier `[0xec, 0xde]`, type byte, version `0x01`, cipher byte, nonce, KDF/key-exchange parameters)
-2. Encrypt/decrypt the stream body using a block cipher in GCM mode via `Enigma.Cryptography.BlockCiphers`
+**Encrypt path** (`EncryptAsync` → `WriteHeaderAsync` → block cipher):
+
+1. Write a binary header to the output stream (identifier `[0xec, 0xde]`, type byte, `CurrentVersion`, cipher byte, nonce, KDF/key-exchange parameters)
+2. Encrypt the stream body using a block cipher in GCM mode via `Enigma.Cryptography.BlockCiphers`
 3. Zero out the key bytes after use with `Array.Clear`
+
+**Decrypt path** (`DecryptAsync` → `ReadCommonPrefixAsync` → `switch (version)` → `DecryptV*Async`):
+
+1. `ReadCommonPrefixAsync` reads and validates the 4-byte common prefix (identifier, type, version) and returns the version byte
+2. `DecryptAsync` dispatches on the version to a self-contained `DecryptV*Async` private method
+3. `DecryptV*Async` reads the remaining version-specific header fields, derives/decapsulates the key, decrypts, and clears the key
+
+This structure means adding a new version only requires a new `DecryptV*Async` method and a new `case` — existing version arms are never modified.
 
 | Service | Key derivation / exchange | `EncryptionType` byte |
 |---|---|---|
@@ -45,13 +54,12 @@ Each service (`*DataEncryptionService.cs`) exposes `EncryptAsync` / `DecryptAsyn
 
 ### Binary Format
 
-Every encrypted blob starts with a common prefix:
+Every encrypted blob starts with a 4-byte common prefix (read by `ReadCommonPrefixAsync`):
 
 | Field | Bytes | Value |
 |---|---|---|
 | Identifier | 2 | `0xec 0xde` |
 | Encryption type | 1 | see `EncryptionType` |
-| Version | 1 | `0x01` |
-| Cipher | 1 | see `Cipher` |
+| Version | 1 | `0x01` or `0x02` (depends on type) |
 
-Followed by KDF/key-exchange-specific fields (nonce, salt, iterations, encapsulation, etc.) and then the GCM-encrypted payload. Full layouts are documented in `README.md`.
+Followed by version-specific fields (cipher, nonce, salt, iterations, encapsulation, etc.) and then the GCM-encrypted payload. Full layouts are documented in `README.md`.

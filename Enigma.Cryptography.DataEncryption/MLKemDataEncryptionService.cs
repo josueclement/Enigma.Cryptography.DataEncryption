@@ -20,18 +20,18 @@ namespace Enigma.Cryptography.DataEncryption;
 // ReSharper disable once InconsistentNaming
 public class MLKemDataEncryptionService
 {
+    private const byte CurrentVersion = 0x02;
+
     /// <summary>
     /// Computes a 16-byte key fingerprint as the first 16 bytes of the SHA-256 hash
     /// of the public key's encoded bytes.
     /// </summary>
     private static byte[] ComputeKeyFingerprint(AsymmetricKeyParameter publicKey)
     {
-        var keyBytes = ((MLKemPublicKeyParameters)publicKey).GetEncoded();
-        using var sha256 = SHA256.Create();
-        var hash = sha256.ComputeHash(keyBytes);
-        var fingerprint = new byte[16];
-        Array.Copy(hash, fingerprint, 16);
-        return fingerprint;
+        if (publicKey is not MLKemPublicKeyParameters mlKemPub)
+            throw new ArgumentException("Expected an ML-KEM public key.", nameof(publicKey));
+        var keyBytes = mlKemPub.GetEncoded();
+        return CryptoHelpers.ComputeFingerprint(keyBytes);
     }
 
     /// <summary>
@@ -43,15 +43,11 @@ public class MLKemDataEncryptionService
     // ReSharper disable once InconsistentNaming
     public static bool MatchesFingerprint(AsymmetricKeyParameter privateKey, byte[] fingerprint)
     {
-        var mlKemPriv = (MLKemPrivateKeyParameters)privateKey;
+        if (privateKey is not MLKemPrivateKeyParameters mlKemPriv)
+            throw new ArgumentException("Expected an ML-KEM private key.", nameof(privateKey));
         var publicKey = mlKemPriv.GetPublicKey();
         var computed = ComputeKeyFingerprint(publicKey);
-        if (computed.Length != fingerprint.Length)
-            return false;
-        for (var i = 0; i < computed.Length; i++)
-            if (computed[i] != fingerprint[i])
-                return false;
-        return true;
+        return CryptoHelpers.FixedTimeEquals(computed, fingerprint);
     }
 
     /// <summary>
@@ -82,7 +78,7 @@ public class MLKemDataEncryptionService
         await output.WriteByteAsync((byte)EncryptionType.MLKem).ConfigureAwait(false);
 
         // Version
-        await output.WriteByteAsync(0x02).ConfigureAwait(false);
+        await output.WriteByteAsync(CurrentVersion).ConfigureAwait(false);
 
         // Cipher
         await output.WriteByteAsync(cipherValue).ConfigureAwait(false);
@@ -118,13 +114,15 @@ public class MLKemDataEncryptionService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        if (input is null) throw new ArgumentNullException(nameof(input));
+        if (output is null) throw new ArgumentNullException(nameof(output));
+        if (publicKey is null) throw new ArgumentNullException(nameof(publicKey));
+        if (!Enum.IsDefined(typeof(Cipher), cipher)) throw new ArgumentOutOfRangeException(nameof(cipher));
+
         var mlKemService = new MLKemServiceFactory().CreateKem1024();
-        var bcsFactory = new BlockCipherServiceFactory();
-        var bcsEngineFactory = new BlockCipherEngineFactory();
-        var bcsParametersFactory = new BlockCipherParametersFactory();
 
         // Get block cipher service from cipher enum
-        var bcs = CipherUtils.GetBlockCipherService(cipher, bcsFactory, bcsEngineFactory);
+        var bcs = CipherUtils.GetBlockCipherService(cipher, CryptoHelpers.BcsFactory, CryptoHelpers.BcsEngineFactory);
 
         // Generate random nonce
         var nonce = RandomUtils.GenerateRandomBytes(12);
@@ -135,31 +133,33 @@ public class MLKemDataEncryptionService
         // Encapsulate secret key using public key
         var (encapsulation, secret) = mlKemService.Encapsulate(publicKey);
 
-        // Create GCM parameters for block cipher service
-        var bcsParameters = bcsParametersFactory.CreateGcmParameters(secret, nonce);
+        try
+        {
+            // Create GCM parameters for block cipher service
+            var bcsParameters = CryptoHelpers.BcsParametersFactory.CreateGcmParameters(secret, nonce);
 
-        // Write header
-        await WriteHeaderAsync(output, (byte)cipher, keyFingerprint, nonce, encapsulation, cancellationToken).ConfigureAwait(false);
+            // Write header
+            await WriteHeaderAsync(output, (byte)cipher, keyFingerprint, nonce, encapsulation, cancellationToken).ConfigureAwait(false);
 
-        // Encrypt data
-        await bcs.EncryptAsync(input, output, bcsParameters, progress, cancellationToken).ConfigureAwait(false);
-
-        // Clear key from memory
-        Array.Clear(secret, 0, secret.Length);
+            // Encrypt data
+            await bcs.EncryptAsync(input, output, bcsParameters, progress, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Clear key from memory
+            Array.Clear(secret, 0, secret.Length);
+        }
     }
 
     /// <summary>
-    /// Reads and parses the encryption header from the input stream to extract
-    /// the parameters needed for decryption.
+    /// Reads and validates the common prefix (identifier, type, version) from the input stream.
     /// </summary>
     /// <param name="input">The stream to read the header from</param>
-    /// <param name="progress">Optional progress reporting</param>
     /// <param name="cancellationToken">Token to cancel the operation</param>
-    /// <returns>A tuple containing the cipher type, key fingerprint, nonce, and encapsulation data</returns>
-    /// <exception cref="InvalidDataException">Thrown when header validation fails</exception>
-    private async Task<(Cipher cipher, byte[] keyFingerprint, byte[] nonce, byte[] encapsulation)> ReadHeaderAsync(
+    /// <returns>The version byte from the header.</returns>
+    /// <exception cref="InvalidDataException">Thrown when the header identifier or type is invalid</exception>
+    private async Task<byte> ReadCommonPrefixAsync(
         Stream input,
-        IProgress<int>? progress = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -175,27 +175,7 @@ public class MLKemDataEncryptionService
             throw new InvalidDataException("Invalid encryption type");
 
         // Version
-        var version = await input.ReadByteAsync().ConfigureAwait(false);
-        if (version != 0x02)
-            throw new InvalidDataException("Invalid version");
-
-        // Cipher
-        var cipherValue = await input.ReadByteAsync().ConfigureAwait(false);
-        var cipher = (Cipher)cipherValue;
-
-        // Key fingerprint
-        var keyFingerprint = await input.ReadBytesAsync(16).ConfigureAwait(false);
-
-        // Nonce
-        var nonce = await input.ReadBytesAsync(12).ConfigureAwait(false);
-
-        // Encapsulation
-        var encapsulation = await input.ReadLengthValueAsync().ConfigureAwait(false);
-
-        // Progress
-        progress?.Report(37 + encapsulation.Length);
-
-        return (cipher, keyFingerprint, nonce, encapsulation);
+        return await input.ReadByteAsync().ConfigureAwait(false);
     }
 
     /// <summary>
@@ -217,31 +197,68 @@ public class MLKemDataEncryptionService
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var mlKemService = new MLKemServiceFactory().CreateKem1024();
-        var bcsFactory = new BlockCipherServiceFactory();
-        var bcsEngineFactory = new BlockCipherEngineFactory();
-        var bcsParametersFactory = new BlockCipherParametersFactory();
+        if (input is null) throw new ArgumentNullException(nameof(input));
+        if (output is null) throw new ArgumentNullException(nameof(output));
+        if (privateKey is null) throw new ArgumentNullException(nameof(privateKey));
 
-        // Read header
-        var (cipher, keyFingerprint, nonce, encapsulation) = await ReadHeaderAsync(input, progress, cancellationToken).ConfigureAwait(false);
+        var version = await ReadCommonPrefixAsync(input, cancellationToken).ConfigureAwait(false);
+
+        switch (version)
+        {
+            case 0x02:
+                await DecryptV2Async(input, output, privateKey, progress, cancellationToken).ConfigureAwait(false);
+                break;
+            default:
+                throw new InvalidDataException($"Unsupported version: 0x{version:x2}");
+        }
+    }
+
+    private async Task DecryptV2Async(
+        Stream input,
+        Stream output,
+        AsymmetricKeyParameter privateKey,
+        IProgress<int>? progress,
+        CancellationToken cancellationToken)
+    {
+        // Cipher
+        var cipherValue = await input.ReadByteAsync().ConfigureAwait(false);
+        var cipher = CryptoHelpers.ValidateCipher(cipherValue);
+
+        // Key fingerprint
+        var keyFingerprint = await input.ReadBytesAsync(16).ConfigureAwait(false);
+
+        // Nonce
+        var nonce = await input.ReadBytesAsync(12).ConfigureAwait(false);
+
+        // Encapsulation
+        var encapsulation = await input.ReadLengthValueAsync().ConfigureAwait(false);
+
+        // Progress
+        progress?.Report(37 + encapsulation.Length);
 
         // Validate private key matches fingerprint
         if (!MatchesFingerprint(privateKey, keyFingerprint))
             throw new InvalidOperationException("The private key does not match the key fingerprint stored in the header.");
 
         // Get block cipher service from cipher enum
-        var bcs = CipherUtils.GetBlockCipherService(cipher, bcsFactory, bcsEngineFactory);
+        var bcs = CipherUtils.GetBlockCipherService(cipher, CryptoHelpers.BcsFactory, CryptoHelpers.BcsEngineFactory);
 
         // Decapsulate secret key using private key
+        var mlKemService = new MLKemServiceFactory().CreateKem1024();
         var secret = mlKemService.Decapsulate(encapsulation, privateKey);
 
-        // Create GCM parameters for block cipher service
-        var bcsParameters = bcsParametersFactory.CreateGcmParameters(secret, nonce);
+        try
+        {
+            // Create GCM parameters for block cipher service
+            var bcsParameters = CryptoHelpers.BcsParametersFactory.CreateGcmParameters(secret, nonce);
 
-        // Decrypt data
-        await bcs.DecryptAsync(input, output, bcsParameters, progress, cancellationToken).ConfigureAwait(false);
-
-        // Clear key from memory
-        Array.Clear(secret, 0, secret.Length);
+            // Decrypt data
+            await bcs.DecryptAsync(input, output, bcsParameters, progress, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Clear key from memory
+            Array.Clear(secret, 0, secret.Length);
+        }
     }
 }
