@@ -17,7 +17,7 @@ dotnet pack Enigma.Cryptography.DataEncryption/Enigma.Cryptography.DataEncryptio
 
 ## Architecture
 
-This is a multi-target .NET library (`netstandard2.0`, `net10.0`) that wraps the `Enigma.Cryptography` NuGet package to provide stream-based encryption/decryption services.
+This is a multi-target .NET library (`netstandard2.0`, `net8.0`) that wraps the `Enigma.Cryptography` NuGet package to provide stream-based encryption/decryption services.
 
 **Main library:** `Enigma.Cryptography.DataEncryption/`
 

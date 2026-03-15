@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <OutputType>Library</OutputType>
-        <TargetFrameworks>netstandard2.0;net10.0</TargetFrameworks>
+        <TargetFrameworks>netstandard2.0;net8.0</TargetFrameworks>
         <Nullable>enable</Nullable>
         <LangVersion>13</LangVersion>
         <Authors>Josué Clément</Authors>
@@ -27,7 +27,7 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="Enigma.Cryptography" Version="4.0.1" />
+      <PackageReference Include="Enigma.Cryptography" Version="4.2.1" />
     </ItemGroup>
 
 </Project>

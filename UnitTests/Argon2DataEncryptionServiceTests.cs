@@ -11,7 +11,7 @@ namespace UnitTests;
 public class Argon2DataEncryptionServiceTests
 {
     private static readonly byte[] Data = Encoding.UTF8.GetBytes("This is a secret message");
-    private static readonly byte[] Password = Encoding.UTF8.GetBytes("test1234");
+    private static byte[] Password => Encoding.UTF8.GetBytes("test1234");
     private static readonly byte[] WrongPassword = Encoding.UTF8.GetBytes("wrong-password");
 
     private static async Task<byte[]> Encrypt(Cipher cipher, byte[] password, CancellationToken ct)

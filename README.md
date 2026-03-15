@@ -6,7 +6,7 @@ All services share the same `Stream`-in / `Stream`-out API with optional `IProgr
 
 ## Target frameworks
 
-`netstandard2.0`, `net10.0`
+`netstandard2.0`, `net8.0`
 
 ## Available services
 
